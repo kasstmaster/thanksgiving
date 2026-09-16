@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#132841" />
+    <meta name="description" content="The Meyers Thanksgiving potluck and RSVP page." />
+    <title>The Meyers Thanksgiving</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="pumpkin-cluster left" aria-hidden="true"><span></span><span></span><span></span><i></i></div>
+      <div class="header-copy">
+        <p class="eyebrow">Gather · Give Thanks · Feast</p>
+        <h1>The Meyers <em>Thanksgiving</em></h1>
+        <p class="date-line">Thursday, November 26 · Dinner at 4:00 PM</p>
+      </div>
+      <div class="pumpkin-cluster right" aria-hidden="true"><span></span><span></span><span></span><i></i></div>
+      <button class="sign-in-button" id="signInButton" type="button">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a5 5 0 0 0-3 9c-3 1.1-5 3.8-5 7v2h16v-2c0-3.2-2-5.9-5-7a5 5 0 0 0-3-9Z"/></svg>
+        <span>Sign In</span>
+      </button>
+    </header>
+
+    <main>
+      <section class="welcome" aria-labelledby="welcome-title">
+        <div>
+          <p class="section-kicker">Our family table</p>
+          <h2 id="welcome-title">Bring a favorite. Share the joy.</h2>
+          <p>Choose something delicious to bring, then let us know who's coming. We'll save your selections for you.</p>
+        </div>
+        <button class="rsvp-button" id="rsvpButton" type="button">RSVP <span>→</span></button>
+      </section>
+
+      <section class="summary-strip" aria-label="Event summary">
+        <div><strong id="dishCount">0</strong><span>Dishes claimed</span></div>
+        <div class="divider"></div>
+        <div><strong id="guestCount">0</strong><span>Guests attending</span></div>
+        <div class="divider"></div>
+        <div><strong id="remainingCount">0</strong><span>Still needed</span></div>
+      </section>
+
+      <section class="menu-section" aria-labelledby="menu-title">
+        <div class="section-heading">
+          <div>
+            <p class="section-kicker">The potluck</p>
+            <h2 id="menu-title">What can you bring?</h2>
+          </div>
+          <p>Tap <strong>I'll bring this</strong> to claim a dish. You can choose more than one!</p>
+        </div>
+        <div id="menuGrid" class="menu-grid"></div>
+      </section>
+
+      <section class="other-card" aria-labelledby="other-title">
+        <div class="other-icon" aria-hidden="true">+</div>
+        <div class="other-copy">
+          <p class="section-kicker">Other</p>
+          <h2 id="other-title">Don't see your dish? Add it!</h2>
+          <p>Tell us what special something you'll be bringing to the table.</p>
+        </div>
+        <form id="customItemForm" class="other-form">
+          <label><span>Your dish</span><input id="customItemName" required maxlength="60" placeholder="e.g. Grandma's pecan pie" /></label>
+          <label class="quantity-label"><span>How many?</span><input id="customItemQuantity" required type="number" min="1" max="50" value="1" /></label>
+          <button type="submit">Add my dish</button>
+        </form>
+      </section>
+    </main>
+
+    <footer><div class="mini-pumpkin" aria-hidden="true"></div><p>Made with gratitude for the Meyers family</p><span>♥</span></footer>
+
+    <dialog id="nameDialog">
+      <form method="dialog" id="nameForm" class="modal-card">
+        <button class="modal-close" value="cancel" aria-label="Close">×</button>
+        <p class="section-kicker">Welcome to the table</p>
+        <h2>First, what's your name?</h2>
+        <p>We'll only ask once while you're on this page.</p>
+        <label><span>Your name</span><input id="guestName" autocomplete="name" required maxlength="50" placeholder="Enter your name" /></label>
+        <button class="primary-button" value="default">Let's get started</button>
+      </form>
+    </dialog>
+
+    <dialog id="rsvpDialog">
+      <form method="dialog" id="rsvpForm" class="modal-card">
+        <button class="modal-close" value="cancel" aria-label="Close">×</button>
+        <p class="section-kicker">Save your seat</p>
+        <h2>Who's joining us?</h2>
+        <p>We can't wait to celebrate together.</p>
+        <div class="counter-row"><div><strong>Adults</strong><span>Age 13+</span></div><div class="stepper"><button type="button" data-step="-1" data-target="adults">−</button><output id="adults">1</output><button type="button" data-step="1" data-target="adults">+</button></div></div>
+        <div class="counter-row"><div><strong>Children</strong><span>Age 12 and under</span></div><div class="stepper"><button type="button" data-step="-1" data-target="children">−</button><output id="children">0</output><button type="button" data-step="1" data-target="children">+</button></div></div>
+        <button class="primary-button" value="default">Save my RSVP</button>
+      </form>
+    </dialog>
+
+    <dialog id="signInDialog">
+      <form method="dialog" id="signInForm" class="modal-card">
+        <button class="modal-close" value="cancel" aria-label="Close">×</button>
+        <p class="section-kicker">Host access</p><h2>Sign in to edit</h2>
+        <p>Enter the host password to update dishes and amounts.</p>
+        <label><span>Password</span><input id="password" type="password" required placeholder="Enter password" /></label>
+        <p class="form-error" id="passwordError" role="alert"></p>
+        <button class="primary-button" value="default">Sign in</button>
+      </form>
+    </dialog>
+
+    <dialog id="adminDialog" class="wide-dialog">
+      <form method="dialog" class="modal-card">
+        <button class="modal-close" value="cancel" aria-label="Close">×</button>
+        <p class="section-kicker">Host dashboard</p><h2>Edit the menu</h2>
+        <p>Change requested amounts, rename dishes, or add something new.</p>
+        <div id="adminItems" class="admin-items"></div>
+        <div class="admin-add">
+          <input id="adminNewItem" placeholder="New item" maxlength="60" />
+          <select id="adminNewCategory"><option>Appetizers</option><option>Main Table</option><option>Sides</option><option>Desserts</option><option>Drinks</option></select>
+          <input id="adminNewAmount" type="number" min="1" max="50" value="1" aria-label="Amount needed" />
+          <button id="adminAddButton" type="button">Add</button>
+        </div>
+        <button class="primary-button" value="default">Done editing</button>
+      </form>
+    </dialog>
+
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+    <script src="app.js"></script>
+  </body>
+</html>
