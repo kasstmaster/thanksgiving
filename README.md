@@ -13,6 +13,12 @@ GitHub will provide a public link you can share with your guests.
 
 ## Save everything permanently in GitHub
 
+The app always loads `data/app-state.json` from this repository before opening
+the sign-in dialog. That checked-in file is the canonical fallback on every
+phone and computer, so accounts, RSVPs, claims, dates, and menu edits placed in
+it do not depend on browser storage. Edit and commit that JSON file whenever you
+want to manually replace the published state.
+
 GitHub Pages cannot write to its own repository, and putting a GitHub token in
 browser JavaScript would let every visitor steal it. This repository therefore
 includes a small Cloudflare Worker in `github-state-worker/`. It keeps the token
@@ -47,6 +53,11 @@ state when the page opens, regains focus, and every 30 seconds.
    recovered from Git history. If there is no browser data to preserve, the
    first change starts from the defaults in `app.js`.
 
+The Worker is required for changes made *inside the website* to be committed
+automatically. Without a Worker URL, visitors can still read the same committed
+`data/app-state.json` on every device, while website edits remain local until
+you copy them into the file and commit it.
+
 If GitHub or the worker is temporarily unavailable, the change remains in that
 browser and the site shows a sync warning. Make another change after service is
 restored to commit the latest complete state. The repository remains the durable
@@ -61,10 +72,11 @@ shared copy; browser storage is only an offline fallback.
 - Update `defaultItems` in `app.js` to change the initial menu.
 - In **Host tools → Edit menu**, add, rename, or remove quantity types such as **Dozen**, **Package**, **Tray**, or **Case**, then choose a type for each requested quantity. Guests will see and claim the quantity in the selected unit.
 
-> **Important:** When `shared-state-url` is blank, sign-ups are stored only in
-> each visitor's browser and are not shared or committed to GitHub. Also note
+> **Important:** When `shared-state-url` is blank, the committed
+> `data/app-state.json` is shared read-only and new sign-ups are stored only in
+> each visitor's browser. They cannot be committed automatically by a static
+> GitHub Pages site. Also note
 > that last-name sign-in on a
 > static website is only a convenience—not secure authentication—because
 > visitors can view the site's source code. Protect the shared endpoint with
 > appropriate access controls if RSVP names must remain private.
-

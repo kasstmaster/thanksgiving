@@ -1,5 +1,6 @@
 const STORAGE_KEY = 'meyers-thanksgiving-v2';
 const SHARED_STATE_URL = document.querySelector('meta[name="shared-state-url"]')?.content.trim() || '';
+const REPOSITORY_STATE_URL = document.querySelector('meta[name="repository-state-url"]')?.content.trim() || 'data/app-state.json';
 const HOST_PASSWORD = '0810'; // Change this before publishing your site.
 const HOST_DISPLAY_NAME = 'The Host';
 const DEFAULT_EVENT_DATE = '2026-11-28';
@@ -172,11 +173,12 @@ async function saveSharedState() {
   }
 }
 async function loadSharedState() {
-  if (!SHARED_STATE_URL) return;
+  const stateUrl = SHARED_STATE_URL || REPOSITORY_STATE_URL;
+  if (!stateUrl) return;
   try {
-    const response = await fetch(SHARED_STATE_URL, { cache: 'no-store' });
+    const response = await fetch(stateUrl, { cache: 'no-store' });
     if (response.status === 404 || response.status === 204) {
-      queueSharedStateSave();
+      if (SHARED_STATE_URL) queueSharedStateSave();
       return;
     }
     if (!response.ok) throw new Error(`Shared state load failed (${response.status})`);
@@ -617,12 +619,19 @@ document.querySelector('#adminAddButton').addEventListener('click', () => {
   document.querySelector('#adminNewItem').value = ''; saveState(); openAdmin();
 });
 
+async function startApp() {
+  // Wait for GitHub's canonical copy before allowing sign-in. On slower mobile
+  // connections the old timer could open the dialog against an empty local copy.
+  await loadSharedState();
+  render();
+  document.querySelector('#passwordDialog').showModal();
+}
+
 render();
-loadSharedState();
+startApp();
 singleColumnMenu.addEventListener('change', render);
 window.addEventListener('focus', loadSharedState);
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible') loadSharedState();
 });
 if (SHARED_STATE_URL) setInterval(loadSharedState, 30000);
-setTimeout(() => document.querySelector('#passwordDialog').showModal(), 450);
