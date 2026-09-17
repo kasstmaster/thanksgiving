@@ -243,7 +243,7 @@ function render() {
   const eventDate = new Date(`${state.eventDate}T12:00:00`);
   const dateElement = document.querySelector('#eventDate');
   dateElement.dateTime = state.eventDate;
-  dateElement.textContent = new Intl.DateTimeFormat('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }).format(eventDate);
+  dateElement.textContent = new Intl.DateTimeFormat('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }).format(eventDate).replaceAll(',', '');
   const categories = [...new Set(state.items.map(item => item.category))];
   const categoryCard = category => `
     <article class="category-card">
@@ -276,7 +276,7 @@ function renderDish(item) {
   const claimants = hostAuthenticated
     ? `<span class="dish-claimants">${[...new Set(item.claims)].map(name => escapeHtml(contributionDisplayName(name))).join(', ')}</span>`
     : '';
-  const status = item.optional ? 'Optional' : (remaining ? `${formatQuantity(remaining, item)} of ${formatQuantity(item.needed, item)} still needed` : '');
+  const status = item.optional ? 'Optional' : (remaining ? `${remaining} of ${formatQuantity(item.needed, item)} still needed` : '');
   const details = [status, claimants].filter(Boolean).join(' · ');
   const unavailable = remaining === 0 && !mine;
   return `<div class="dish"><h4>${escapeHtml(item.name)}</h4>${details ? `<div class="dish-meta">${details}</div>` : ''}<button data-claim="${item.id}" ${unavailable ? 'disabled' : ''} class="${mine ? 'claimed' : ''}">${mine ? '✓ Bringing it' : (unavailable ? 'Claimed' : "I'll bring this")}</button></div>`;
@@ -294,7 +294,7 @@ function claimItem(id) {
     if (remaining < 1) return;
     if (item.needed > 1) {
       pendingClaimItemId = item.id;
-      document.querySelector('#claimQuantityDescription').textContent = `${formatQuantity(remaining, item)} of ${formatQuantity(item.needed, item)} ${item.name} still needed.`;
+      document.querySelector('#claimQuantityDescription').textContent = `${remaining} of ${formatQuantity(item.needed, item)} ${item.name} still needed.`;
       document.querySelector('#claimQuantity').innerHTML = Array.from({ length: remaining }, (_, index) => {
         const quantity = index + 1;
         return `<option value="${quantity}">${formatQuantity(quantity, item)}</option>`;
@@ -485,7 +485,7 @@ function openEventsAdmin() {
   document.querySelector('#eventChoices').innerHTML = Object.entries(EVENT_DETAILS).map(([id, event]) => {
     const active = id === appState.activeEventId;
     const date = new Date(`${appState.events[id].eventDate}T12:00:00`);
-    const formatted = new Intl.DateTimeFormat('en-US', { month: 'long', day: 'numeric', year: 'numeric' }).format(date);
+    const formatted = new Intl.DateTimeFormat('en-US', { month: 'long', day: 'numeric', year: 'numeric' }).format(date).replaceAll(',', '');
     return `<div class="event-choice"><div><strong>${event.name}</strong><span>${formatted}${active ? ' · Visible to guests' : ' · Hidden'}</span></div><button type="button" data-activate-event="${id}" ${active ? 'disabled' : ''}>${active ? 'Active' : 'Activate'}</button></div>`;
   }).join('');
   document.querySelectorAll('[data-activate-event]').forEach(button => button.addEventListener('click', () => {
