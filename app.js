@@ -1,6 +1,6 @@
 const STORAGE_KEY = 'meyers-thanksgiving-v2';
 const HOST_PASSWORD = '0810'; // Change this before publishing your site.
-const HOST_DISPLAY_NAME = 'The Meyers';
+const HOST_DISPLAY_NAME = 'The Host';
 const DEFAULT_EVENT_DATE = '2026-11-28';
 const DEFAULT_CHRISTMAS_DATE = '2026-12-25';
 const CHRISTMAS_MENU_VERSION = 2;
@@ -307,7 +307,7 @@ document.querySelector('#passwordForm').addEventListener('submit', event => {
     render();
     if (shouldOpenHostTools) document.querySelector('#hostToolsDialog').showModal();
     else if (action) action();
-    else showToast('Host sign-in complete. You can RSVP and bring items as The Meyers.');
+    else showToast('Host sign-in complete. You can RSVP and bring items as The Host.');
     return;
   }
   const account = appState.accounts.find(entry => accountNameMatches(accountName, entry.name));
