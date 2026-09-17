@@ -118,7 +118,19 @@ function saveState() {
 }
 function escapeHtml(value) { const el = document.createElement('div'); el.textContent = value; return el.innerHTML; }
 function escapeAttribute(value) { return escapeHtml(value).replaceAll('"', '&quot;').replaceAll("'", '&#39;'); }
-function normalizeAccountName(value) { return value.replace(/\s/g, '').toLocaleLowerCase(); }
+function normalizeAccountName(value) {
+  return value
+    .trim()
+    .toLocaleLowerCase()
+    .replace(/^the\s+/, '')
+    .replace(/\s/g, '');
+}
+function accountPasswordMatches(password, accountName) {
+  const normalizedPassword = normalizeAccountName(password);
+  const normalizedAccount = normalizeAccountName(accountName);
+  return normalizedPassword === normalizedAccount
+    || (normalizedAccount.endsWith('s') && normalizedPassword === normalizedAccount.slice(0, -1));
+}
 function showToast(message) { const toast = document.querySelector('#toast'); toast.textContent = message; toast.classList.add('show'); setTimeout(() => toast.classList.remove('show'), 2600); }
 function updateHostToolsButton() { document.querySelector('#hostToolsButton').textContent = hostAuthenticated ? 'Host tools' : 'Settings'; }
 function ensureAccount(callback) {
@@ -193,7 +205,7 @@ function openCustomItem(category) {
 document.querySelector('#passwordForm').addEventListener('submit', event => {
   event.preventDefault();
   const accountName = document.querySelector('#accountPassword').value;
-  if (accountName.toLocaleLowerCase() === HOST_PASSWORD.toLocaleLowerCase()) {
+  if (normalizeAccountName(accountName) === normalizeAccountName(HOST_PASSWORD)) {
     hostAuthenticated = true;
     guestName = HOST_DISPLAY_NAME;
     updateHostToolsButton();
@@ -209,8 +221,7 @@ document.querySelector('#passwordForm').addEventListener('submit', event => {
     else showToast('Host sign-in complete. You can RSVP and bring items as The Meyers.');
     return;
   }
-  const normalizedAccountName = normalizeAccountName(accountName);
-  const account = appState.accounts.find(entry => normalizeAccountName(entry.name) === normalizedAccountName);
+  const account = appState.accounts.find(entry => accountPasswordMatches(accountName, entry.name));
   if (!account) { document.querySelector('#accountPasswordError').textContent = 'That last name is not recognized.'; return; }
   if (!account.selected) { document.querySelector('#accountPasswordError').textContent = 'This account is not currently invited.'; return; }
   guestName = account.name;
