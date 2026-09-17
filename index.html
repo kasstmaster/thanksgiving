@@ -94,6 +94,17 @@
       </form>
     </dialog>
 
+    <dialog id="claimQuantityDialog">
+      <form method="dialog" id="claimQuantityForm" class="modal-card">
+        <button class="modal-close" value="cancel" aria-label="Close">×</button>
+        <p class="section-kicker">Choose your amount</p>
+        <h2>How many will you bring?</h2>
+        <p id="claimQuantityDescription"></p>
+        <label><span>Quantity</span><select id="claimQuantity" required></select></label>
+        <button class="primary-button" value="default">I'll bring this amount</button>
+      </form>
+    </dialog>
+
     <dialog id="adminDialog" class="wide-dialog">
       <form method="dialog" class="modal-card">
         <button class="modal-close" value="cancel" aria-label="Close">×</button>

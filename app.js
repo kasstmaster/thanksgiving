@@ -77,6 +77,7 @@ let appState = loadState();
 let state = appState.events[appState.activeEventId];
 let guestName = '';
 let pendingAccountAction = null;
+let pendingClaimItemId = null;
 let hostAuthenticated = false;
 let hostToolsRequested = false;
 const singleColumnMenu = window.matchMedia('(max-width: 800px)');
@@ -224,7 +225,7 @@ function renderDish(item) {
   const mine = guestName && item.claims.includes(guestName);
   const remaining = Math.max(0, item.needed - item.claims.length);
   const claimants = hostAuthenticated
-    ? [...new Set(item.claims)].map(name => escapeHtml(householdDisplayName(name))).join(', ')
+    ? `<span class="dish-claimants">${[...new Set(item.claims)].map(name => escapeHtml(householdDisplayName(name))).join(', ')}</span>`
     : '';
   const status = item.optional ? 'Optional' : (remaining ? `${remaining} of ${item.needed} still needed` : '');
   const details = [status, claimants].filter(Boolean).join(' · ');
@@ -234,9 +235,27 @@ function renderDish(item) {
 function claimItem(id) {
   ensureAccount(() => {
     const item = state.items.find(entry => entry.id === id); if (!item) return;
-    if (item.claims.includes(guestName)) { item.claims = item.claims.filter(name => name !== guestName); showToast(`Removed ${item.name} from your list.`); }
-    else if (item.claims.length < item.needed) { item.claims.push(guestName); showToast(`Thanks, ${householdDisplayName(guestName)}! You're bringing ${item.name}.`); }
+    if (item.claims.includes(guestName)) {
+      item.claims = item.claims.filter(name => name !== guestName);
+      showToast(`Removed ${item.name} from your list.`);
+      saveState();
+      return;
+    }
+    const remaining = item.needed - item.claims.length;
+    if (remaining < 1) return;
+    if (item.needed > 1) {
+      pendingClaimItemId = item.id;
+      document.querySelector('#claimQuantityDescription').textContent = `${remaining} of ${item.needed} ${item.name} still needed.`;
+      document.querySelector('#claimQuantity').innerHTML = Array.from({ length: remaining }, (_, index) => {
+        const quantity = index + 1;
+        return `<option value="${quantity}">${quantity}</option>`;
+      }).join('');
+      document.querySelector('#claimQuantityDialog').showModal();
+      return;
+    }
+    item.claims.push(guestName);
     saveState();
+    showToast(`Thanks, ${householdDisplayName(guestName)}! You're bringing ${item.name}.`);
   });
 }
 function openCustomItem(category) {
@@ -284,6 +303,20 @@ document.querySelector('#customItemForm').addEventListener('submit', event => {
   event.target.reset(); document.querySelector('#customItemQuantity').value = 1;
   document.querySelector('#customItemDialog').close(); saveState(); showToast(`${name} was added to ${category}!`);
 });
+document.querySelector('#claimQuantityForm').addEventListener('submit', event => {
+  event.preventDefault();
+  const item = state.items.find(entry => entry.id === pendingClaimItemId);
+  const requestedQuantity = Number(document.querySelector('#claimQuantity').value);
+  if (!item || item.claims.includes(guestName) || requestedQuantity < 1) return;
+  const quantity = Math.min(requestedQuantity, Math.max(0, item.needed - item.claims.length));
+  if (!quantity) return;
+  item.claims.push(...Array(quantity).fill(guestName));
+  pendingClaimItemId = null;
+  document.querySelector('#claimQuantityDialog').close();
+  saveState();
+  showToast(`Thanks, ${householdDisplayName(guestName)}! You're bringing ${quantity} ${item.name}.`);
+});
+document.querySelector('#claimQuantityDialog').addEventListener('close', () => { pendingClaimItemId = null; });
 document.querySelector('#rsvpButton').addEventListener('click', () => ensureAccount(() => {
   const existing = state.rsvps.find(r => r.name === guestName);
   document.querySelector('#adults').value = existing?.adults ?? 1;
