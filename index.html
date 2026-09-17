@@ -10,18 +10,9 @@
   </head>
   <body>
     <header class="site-header">
-      <div class="header-art" aria-label="Thanksgiving invitation with three decorative pumpkins">
-        <span class="corner-flourish top-left" aria-hidden="true">❧</span>
-        <span class="corner-flourish top-right" aria-hidden="true">❧</span>
-        <span class="corner-flourish bottom-left" aria-hidden="true">❧</span>
-        <span class="corner-flourish bottom-right" aria-hidden="true">❧</span>
-        <div class="pumpkin-display" aria-hidden="true">
-          <div class="pumpkin floral-pumpkin"><i></i><span></span><span></span><span></span></div>
-          <div class="pumpkin orange-pumpkin"><i></i><span></span><span></span><span></span></div>
-          <div class="pumpkin blue-pumpkin"><i></i><span></span><span></span><span></span></div>
-        </div>
-        <h1>Thanksgiving</h1>
-        <p>with the Meyers</p>
+      <div class="header-art">
+        <img src="assets/thanksgiving-header.svg" alt="Three decorative pumpkins above the word Thanksgiving" />
+        <time id="eventDate" class="event-date"></time>
       </div>
       <button class="sign-in-button" id="signInButton" type="button">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a5 5 0 0 0-3 9c-3 1.1-5 3.8-5 7v2h16v-2c0-3.2-2-5.9-5-7a5 5 0 0 0-3-9Z"/></svg>
@@ -106,7 +97,8 @@
       <form method="dialog" class="modal-card">
         <button class="modal-close" value="cancel" aria-label="Close">×</button>
         <p class="section-kicker">Host dashboard</p><h2>Edit the menu</h2>
-        <p>Change requested amounts, rename dishes, or add something new.</p>
+        <p>Change the event date, requested amounts, dish names, or add something new.</p>
+        <label class="admin-date"><span>Event date</span><input id="adminEventDate" type="date" required /></label>
         <div id="adminItems" class="admin-items"></div>
         <div class="admin-add">
           <input id="adminNewItem" placeholder="New item" maxlength="60" />
