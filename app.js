@@ -1,6 +1,8 @@
 const STORAGE_KEY = 'meyers-thanksgiving-v2';
 const HOST_PASSWORD = 'meyer'; // Change this before publishing your site.
+const HOST_DISPLAY_NAME = 'The Meyers';
 const DEFAULT_EVENT_DATE = '2026-11-28';
+const DEFAULT_CHRISTMAS_DATE = '2026-12-25';
 
 const defaultItems = [
   { id: 'ham', name: 'Ham', category: 'Main Table', needed: 1, claims: [] },
@@ -31,35 +33,65 @@ const GUEST_ACCOUNTS = [
   { name: 'Raudman', selected: true }
 ];
 
-let state = loadState();
+const EVENT_DETAILS = {
+  thanksgiving: { name: 'Thanksgiving', theme: 'thanksgiving', header: 'https://i.postimg.cc/90gnCYy2/Website-Header.png' },
+  christmas: { name: 'Christmas', theme: 'christmas', header: 'https://i.postimg.cc/rmMy7x1t/Website-Header-Christmas.png' }
+};
+
+function christmasItems() {
+  const items = structuredClone(defaultItems);
+  const replacements = { turkey: 'Christmas Turkey', 'turkey-gravy': 'Gravy', stuffing: 'Christmas Stuffing', 'pumpkin-pie': 'Christmas Cookies', 'cherry-pie': 'Pecan Pie' };
+  return items.map(item => ({ ...item, name: replacements[item.id] || item.name }));
+}
+function makeEvent(items, eventDate) { return { items, rsvps: [], eventDate, accountSelectionResetFor: '' }; }
+function initialAppState() {
+  return {
+    activeEventId: 'thanksgiving',
+    accounts: structuredClone(GUEST_ACCOUNTS),
+    events: {
+      thanksgiving: makeEvent(structuredClone(defaultItems), DEFAULT_EVENT_DATE),
+      christmas: makeEvent(christmasItems(), DEFAULT_CHRISTMAS_DATE)
+    }
+  };
+}
+
+let appState = loadState();
+let state = appState.events[appState.activeEventId];
 let guestName = '';
 let pendingAccountAction = null;
 let hostAuthenticated = false;
 let hostToolsRequested = false;
 const singleColumnMenu = window.matchMedia('(max-width: 800px)');
 
-function initialState() { return { items: structuredClone(defaultItems), accounts: structuredClone(GUEST_ACCOUNTS), rsvps: [], eventDate: DEFAULT_EVENT_DATE, accountSelectionResetFor: '' }; }
-function localDateString(date = new Date()) {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-}
-function resetAccountSelectionAfterEvent(currentState) {
-  if (currentState.eventDate >= localDateString() || currentState.accountSelectionResetFor === currentState.eventDate) return false;
-  currentState.accounts.forEach(account => { account.selected = false; });
-  currentState.accountSelectionResetFor = currentState.eventDate;
-  return true;
-}
 function loadState() {
   try {
     const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
-    const loaded = saved ? { ...saved, accounts: (saved.accounts || structuredClone(GUEST_ACCOUNTS)).map(account => ({ ...account, selected: account.selected !== false })), rsvps: saved.rsvps || [], eventDate: saved.eventDate || DEFAULT_EVENT_DATE, accountSelectionResetFor: saved.accountSelectionResetFor || '' } : initialState();
-    if (resetAccountSelectionAfterEvent(loaded)) localStorage.setItem(STORAGE_KEY, JSON.stringify(loaded));
-    return loaded;
-  } catch { return initialState(); }
+    if (!saved) return initialAppState();
+    if (saved.events) {
+      const fresh = initialAppState();
+      return {
+        ...fresh,
+        ...saved,
+        activeEventId: saved.events[saved.activeEventId] ? saved.activeEventId : 'thanksgiving',
+        accounts: (saved.accounts || fresh.accounts).map(account => ({ ...account, selected: account.selected !== false })),
+        events: { ...fresh.events, ...saved.events }
+      };
+    }
+    // Upgrade the original single-Thanksgiving data without losing RSVPs or claims.
+    const upgraded = initialAppState();
+    upgraded.accounts = saved.accounts || upgraded.accounts;
+    upgraded.events.thanksgiving = {
+      items: saved.items || structuredClone(defaultItems), rsvps: saved.rsvps || [],
+      eventDate: saved.eventDate || DEFAULT_EVENT_DATE, accountSelectionResetFor: saved.accountSelectionResetFor || ''
+    };
+    return upgraded;
+  } catch { return initialAppState(); }
 }
-function saveState() { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); render(); }
+function saveState() {
+  appState.events[appState.activeEventId] = state;
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(appState));
+  render();
+}
 function escapeHtml(value) { const el = document.createElement('div'); el.textContent = value; return el.innerHTML; }
 function escapeAttribute(value) { return escapeHtml(value).replaceAll('"', '&quot;').replaceAll("'", '&#39;'); }
 function normalizeAccountName(value) { return value.replace(/\s/g, '').toLocaleLowerCase(); }
@@ -67,6 +99,11 @@ function showToast(message) { const toast = document.querySelector('#toast'); to
 function updateHostToolsButton() { document.querySelector('#hostToolsButton').textContent = hostAuthenticated ? 'Host tools' : 'Settings'; }
 function ensureAccount(callback) {
   if (guestName) return callback();
+  if (hostAuthenticated) {
+    guestName = HOST_DISPLAY_NAME;
+    render();
+    return callback();
+  }
   pendingAccountAction = callback;
   hostToolsRequested = false;
   const dialog = document.querySelector('#passwordDialog');
@@ -74,6 +111,12 @@ function ensureAccount(callback) {
 }
 
 function render() {
+  const event = EVENT_DETAILS[appState.activeEventId];
+  document.body.className = `theme-${event.theme}`;
+  document.title = `The Meyers ${event.name}`;
+  document.querySelector('meta[name="description"]').content = `The Meyers ${event.name} potluck and RSVP page.`;
+  document.querySelector('#eventHeaderImage').src = event.header;
+  document.querySelector('#eventHeaderImage').alt = `${event.name} celebration header`;
   const eventDate = new Date(`${state.eventDate}T12:00:00`);
   const dateElement = document.querySelector('#eventDate');
   dateElement.dateTime = state.eventDate;
@@ -126,20 +169,24 @@ document.querySelector('#passwordForm').addEventListener('submit', event => {
   const accountName = document.querySelector('#accountPassword').value;
   if (accountName.toLocaleLowerCase() === HOST_PASSWORD.toLocaleLowerCase()) {
     hostAuthenticated = true;
+    guestName = HOST_DISPLAY_NAME;
     updateHostToolsButton();
+    const action = pendingAccountAction;
     pendingAccountAction = null;
     const shouldOpenHostTools = hostToolsRequested;
     hostToolsRequested = false;
     document.querySelector('#passwordDialog').close();
     document.querySelector('#accountPasswordError').textContent = '';
+    render();
     if (shouldOpenHostTools) document.querySelector('#hostToolsDialog').showModal();
-    else showToast('Host sign-in complete. Use Host tools when you are ready.');
+    else if (action) action();
+    else showToast('Host sign-in complete. You can RSVP and bring items as The Meyers.');
     return;
   }
   const normalizedAccountName = normalizeAccountName(accountName);
-  const account = state.accounts.find(entry => normalizeAccountName(entry.name) === normalizedAccountName);
+  const account = appState.accounts.find(entry => normalizeAccountName(entry.name) === normalizedAccountName);
   if (!account) { document.querySelector('#accountPasswordError').textContent = 'That last name is not recognized.'; return; }
-  if (!account.selected) { document.querySelector('#accountPasswordError').textContent = 'This account is not selected for the current event.'; return; }
+  if (!account.selected) { document.querySelector('#accountPasswordError').textContent = 'This account is not currently invited.'; return; }
   guestName = account.name;
   document.querySelector('#accountPasswordError').textContent = '';
   document.querySelector('#passwordDialog').close();
@@ -189,19 +236,21 @@ function openAdmin() {
 }
 function openAccountsAdmin() {
   document.querySelector('#adminAccountError').textContent = '';
-  document.querySelector('#adminAccounts').innerHTML = state.accounts.length ? state.accounts.map((account, index) => `<div class="account-row" data-account-index="${index}"><label class="account-selection"><input type="checkbox" ${account.selected ? 'checked' : ''}><span>Selected for event</span></label><input value="${escapeAttribute(account.name)}" maxlength="60" aria-label="Account name"><button type="button" aria-label="Delete ${escapeAttribute(account.name)} account">×</button></div>`).join('') : '<p class="guest-empty">No guest accounts yet.</p>';
+  document.querySelector('#adminAccounts').innerHTML = appState.accounts.length ? appState.accounts.map((account, index) => `<div class="account-row" data-account-index="${index}"><label class="account-selection"><input type="checkbox" ${account.selected ? 'checked' : ''}><span>Can sign in</span></label><input value="${escapeAttribute(account.name)}" maxlength="60" aria-label="Account name"><button type="button" aria-label="Delete ${escapeAttribute(account.name)} account">×</button></div>`).join('') : '<p class="guest-empty">No guest accounts yet.</p>';
   document.querySelectorAll('.account-row').forEach(row => {
     const [selection, name, remove] = row.children;
     selection.querySelector('input').addEventListener('change', event => {
-      state.accounts[Number(row.dataset.accountIndex)].selected = event.target.checked;
-      if (!event.target.checked && guestName === state.accounts[Number(row.dataset.accountIndex)].name) guestName = '';
+      appState.accounts[Number(row.dataset.accountIndex)].selected = event.target.checked;
+      if (!event.target.checked && guestName === appState.accounts[Number(row.dataset.accountIndex)].name) guestName = '';
       saveState();
     });
     name.addEventListener('change', () => renameAccount(Number(row.dataset.accountIndex), name));
     remove.addEventListener('click', () => {
-      const [removed] = state.accounts.splice(Number(row.dataset.accountIndex), 1);
-      state.items.forEach(item => { item.claims = item.claims.filter(name => name !== removed.name); });
-      state.rsvps = state.rsvps.filter(rsvp => rsvp.name !== removed.name);
+      const [removed] = appState.accounts.splice(Number(row.dataset.accountIndex), 1);
+      Object.values(appState.events).forEach(eventState => {
+        eventState.items.forEach(item => { item.claims = item.claims.filter(name => name !== removed.name); });
+        eventState.rsvps = eventState.rsvps.filter(rsvp => rsvp.name !== removed.name);
+      });
       if (guestName === removed.name) guestName = '';
       saveState(); openAccountsAdmin(); showToast('Account removed.');
     });
@@ -209,17 +258,19 @@ function openAccountsAdmin() {
   const dialog = document.querySelector('#accountsDialog'); if (!dialog.open) dialog.showModal();
 }
 function renameAccount(index, input) {
-  const oldName = state.accounts[index]?.name;
+  const oldName = appState.accounts[index]?.name;
   const newName = input.value.trim();
-  const duplicate = state.accounts.some((account, accountIndex) => accountIndex !== index && normalizeAccountName(account.name) === normalizeAccountName(newName));
+  const duplicate = appState.accounts.some((account, accountIndex) => accountIndex !== index && normalizeAccountName(account.name) === normalizeAccountName(newName));
   if (!newName || duplicate) {
     input.value = oldName || '';
     document.querySelector('#adminAccountError').textContent = duplicate ? 'That account already exists.' : 'Account names cannot be empty.';
     return;
   }
-  state.accounts[index].name = newName;
-  state.items.forEach(item => { item.claims = item.claims.map(name => name === oldName ? newName : name); });
-  state.rsvps.forEach(rsvp => { if (rsvp.name === oldName) rsvp.name = newName; });
+  appState.accounts[index].name = newName;
+  Object.values(appState.events).forEach(eventState => {
+    eventState.items.forEach(item => { item.claims = item.claims.map(name => name === oldName ? newName : name); });
+    eventState.rsvps.forEach(rsvp => { if (rsvp.name === oldName) rsvp.name = newName; });
+  });
   if (guestName === oldName) guestName = newName;
   document.querySelector('#adminAccountError').textContent = '';
   saveState(); showToast('Account updated.');
@@ -233,16 +284,36 @@ document.querySelector('#hostToolsButton').addEventListener('click', () => {
   }
 });
 document.querySelector('#passwordDialog').addEventListener('close', () => { hostToolsRequested = false; });
+function openEventsAdmin() {
+  document.querySelector('#eventChoices').innerHTML = Object.entries(EVENT_DETAILS).map(([id, event]) => {
+    const active = id === appState.activeEventId;
+    const date = new Date(`${appState.events[id].eventDate}T12:00:00`);
+    const formatted = new Intl.DateTimeFormat('en-US', { month: 'long', day: 'numeric', year: 'numeric' }).format(date);
+    return `<div class="event-choice"><div><strong>${event.name}</strong><span>${formatted}${active ? ' · Visible to guests' : ' · Hidden'}</span></div><button type="button" data-activate-event="${id}" ${active ? 'disabled' : ''}>${active ? 'Active' : 'Activate'}</button></div>`;
+  }).join('');
+  document.querySelectorAll('[data-activate-event]').forEach(button => button.addEventListener('click', () => {
+    appState.events[appState.activeEventId] = state;
+    appState.activeEventId = button.dataset.activateEvent;
+    state = appState.events[appState.activeEventId];
+    guestName = '';
+    saveState();
+    openEventsAdmin();
+    showToast(`${EVENT_DETAILS[appState.activeEventId].name} is now live.`);
+  }));
+  const dialog = document.querySelector('#eventsDialog');
+  if (!dialog.open) dialog.showModal();
+}
+document.querySelector('#manageEventsButton').addEventListener('click', () => { document.querySelector('#hostToolsDialog').close(); openEventsAdmin(); });
 document.querySelector('#editItemsButton').addEventListener('click', () => { document.querySelector('#hostToolsDialog').close(); openAdmin(); });
 document.querySelector('#editAccountsButton').addEventListener('click', () => { document.querySelector('#hostToolsDialog').close(); openAccountsAdmin(); });
 document.querySelector('#adminAddAccountButton').addEventListener('click', () => {
   const input = document.querySelector('#adminNewAccount');
   const name = input.value.trim();
   if (!name) { document.querySelector('#adminAccountError').textContent = 'Enter a last name.'; return; }
-  if (state.accounts.some(account => normalizeAccountName(account.name) === normalizeAccountName(name))) { document.querySelector('#adminAccountError').textContent = 'That account already exists.'; return; }
-  state.accounts.push({ name, selected: false }); input.value = ''; saveState(); openAccountsAdmin(); showToast(`${name} account added. Select it to allow sign-in.`);
+  if (appState.accounts.some(account => normalizeAccountName(account.name) === normalizeAccountName(name))) { document.querySelector('#adminAccountError').textContent = 'That account already exists.'; return; }
+  appState.accounts.push({ name, selected: false }); input.value = ''; saveState(); openAccountsAdmin(); showToast(`${name} account added. Enable it to allow sign-in.`);
 });
-document.querySelector('#adminEventDate').addEventListener('change', event => { if (!event.target.value) return; state.eventDate = event.target.value; state.accountSelectionResetFor = ''; resetAccountSelectionAfterEvent(state); saveState(); showToast('Event date updated.'); });
+document.querySelector('#adminEventDate').addEventListener('change', event => { if (!event.target.value) return; state.eventDate = event.target.value; state.accountSelectionResetFor = ''; saveState(); showToast('Event date updated.'); });
 document.querySelector('#adminAddButton').addEventListener('click', () => {
   const name = document.querySelector('#adminNewItem').value.trim(); if (!name) return;
   state.items.push({ id: `host-${Date.now()}`, name, category: document.querySelector('#adminNewCategory').value, needed: Math.max(1, Number(document.querySelector('#adminNewAmount').value)), claims: [] });
@@ -252,9 +323,3 @@ document.querySelector('#adminAddButton').addEventListener('click', () => {
 render();
 singleColumnMenu.addEventListener('change', render);
 setTimeout(() => document.querySelector('#passwordDialog').showModal(), 450);
-setInterval(() => {
-  if (!resetAccountSelectionAfterEvent(state)) return;
-  guestName = '';
-  saveState();
-  showToast('The event has passed. Account selections have been reset.');
-}, 60 * 1000);
