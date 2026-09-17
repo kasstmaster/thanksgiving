@@ -1,5 +1,6 @@
 const STORAGE_KEY = 'meyers-thanksgiving-v2';
 const HOST_PASSWORD = 'gather'; // Change this before publishing your site.
+const DEFAULT_EVENT_DATE = '2026-11-28';
 
 const defaultItems = [
   { id: 'ham', name: 'Ham', category: 'Main Table', needed: 1, claims: [] },
@@ -30,8 +31,11 @@ let state = loadState();
 let guestName = '';
 
 function loadState() {
-  try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || { items: defaultItems, rsvps: [] }; }
-  catch { return { items: defaultItems, rsvps: [] }; }
+  try {
+    const savedState = JSON.parse(localStorage.getItem(STORAGE_KEY));
+    return savedState ? { ...savedState, eventDate: savedState.eventDate || DEFAULT_EVENT_DATE } : { items: defaultItems, rsvps: [], eventDate: DEFAULT_EVENT_DATE };
+  }
+  catch { return { items: defaultItems, rsvps: [], eventDate: DEFAULT_EVENT_DATE }; }
 }
 function saveState() { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); render(); }
 function escapeHtml(value) { const el = document.createElement('div'); el.textContent = value; return el.innerHTML; }
@@ -44,6 +48,14 @@ function ensureName(callback) {
 }
 
 function render() {
+  const eventDate = new Date(`${state.eventDate}T12:00:00`);
+  const dateElement = document.querySelector('#eventDate');
+  dateElement.dateTime = state.eventDate;
+  const dateParts = new Intl.DateTimeFormat('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
+    .formatToParts(eventDate)
+    .filter(part => ['weekday', 'month', 'day', 'year'].includes(part.type))
+    .map(part => part.value);
+  dateElement.textContent = dateParts.join('   ');
   const categories = [...new Set(state.items.map(item => item.category))];
   document.querySelector('#menuGrid').innerHTML = categories.map(category => `
     <article class="category-card">
@@ -110,6 +122,7 @@ document.querySelector('#signInForm').addEventListener('submit', event => {
   document.querySelector('#passwordError').textContent = ''; setTimeout(openAdmin, 0);
 });
 function openAdmin() {
+  document.querySelector('#adminEventDate').value = state.eventDate;
   document.querySelector('#adminItems').innerHTML = state.items.map(item => `<div class="admin-row" data-admin-id="${item.id}"><input value="${escapeHtml(item.name)}" aria-label="Dish name"><select aria-label="Category">${['Appetizers','Main Table','Sides','Desserts','Drinks','Other'].map(c => `<option ${c === item.category ? 'selected' : ''}>${c}</option>`).join('')}</select><input type="number" min="1" max="50" value="${item.needed}" aria-label="Amount"><button type="button" aria-label="Delete">×</button></div>`).join('');
   document.querySelectorAll('.admin-row').forEach(row => {
     const [name, category, amount, remove] = row.children;
@@ -119,6 +132,12 @@ function openAdmin() {
   const dialog = document.querySelector('#adminDialog');
   if (!dialog.open) dialog.showModal();
 }
+document.querySelector('#adminEventDate').addEventListener('change', event => {
+  if (!event.target.value) return;
+  state.eventDate = event.target.value;
+  saveState();
+  showToast('Event date updated.');
+});
 document.querySelector('#adminAddButton').addEventListener('click', () => {
   const name = document.querySelector('#adminNewItem').value.trim(); if (!name) return;
   state.items.push({ id: `host-${Date.now()}`, name, category: document.querySelector('#adminNewCategory').value, needed: Math.max(1, Number(document.querySelector('#adminNewAmount').value)), claims: [] });

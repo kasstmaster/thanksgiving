@@ -13,7 +13,7 @@ GitHub will provide a public link you can share with your guests.
 
 ## Customize
 
-- Update the event date and time in `index.html`.
+- Sign in with the host password and update the event date from the host dashboard.
 - Update `HOST_PASSWORD` near the top of `app.js` (the starter password is `gather`).
 - Update `defaultItems` in `app.js` to change the initial menu.
 
