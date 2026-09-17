@@ -192,6 +192,15 @@ function contributionDisplayName(value) {
 function hostFirstRsvps(rsvps) {
   return [...rsvps].sort((a, b) => Number(b.name === HOST_DISPLAY_NAME) - Number(a.name === HOST_DISPLAY_NAME));
 }
+function removeItemClaims(item, claimant, quantity) {
+  let remaining = quantity;
+  item.claims = item.claims.filter(name => {
+    if (name !== claimant || remaining < 1) return true;
+    remaining -= 1;
+    return false;
+  });
+  return quantity - remaining;
+}
 function accountSignInNames(accountName) {
   return accountName.split('/').flatMap(household => {
     const entry = household.trim();
@@ -491,9 +500,51 @@ function openEventsAdmin() {
   const dialog = document.querySelector('#eventsDialog');
   if (!dialog.open) dialog.showModal();
 }
+function updateClearClaimFamilies() {
+  const item = state.items.find(entry => entry.id === document.querySelector('#clearClaimItem').value);
+  const familySelect = document.querySelector('#clearClaimFamily');
+  const families = item ? [...new Set(item.claims)] : [];
+  familySelect.innerHTML = families.map(name => `<option value="${escapeAttribute(name)}">${escapeHtml(contributionDisplayName(name))}</option>`).join('');
+  updateClearClaimQuantities();
+}
+function updateClearClaimQuantities() {
+  const item = state.items.find(entry => entry.id === document.querySelector('#clearClaimItem').value);
+  const family = document.querySelector('#clearClaimFamily').value;
+  const claimed = item ? item.claims.filter(name => name === family).length : 0;
+  document.querySelector('#clearClaimQuantity').innerHTML = Array.from({ length: claimed }, (_, index) => {
+    const quantity = index + 1;
+    return `<option value="${quantity}">${escapeHtml(formatQuantity(quantity, item))}</option>`;
+  }).join('');
+}
+function openClearClaimDialog() {
+  const claimedItems = state.items.filter(item => item.claims.length);
+  const itemSelect = document.querySelector('#clearClaimItem');
+  itemSelect.innerHTML = claimedItems.map(item => `<option value="${escapeAttribute(item.id)}">${escapeHtml(item.name)} (${escapeHtml(formatQuantity(item.claims.length, item))} claimed)</option>`).join('');
+  const hasClaims = claimedItems.length > 0;
+  document.querySelector('#clearClaimError').textContent = hasClaims ? '' : 'There are no claimed dishes to clear.';
+  document.querySelector('#clearClaimSubmit').disabled = !hasClaims;
+  updateClearClaimFamilies();
+  document.querySelector('#clearClaimDialog').showModal();
+}
 document.querySelector('#manageEventsButton').addEventListener('click', () => { document.querySelector('#hostToolsDialog').close(); openEventsAdmin(); });
 document.querySelector('#editItemsButton').addEventListener('click', () => { document.querySelector('#hostToolsDialog').close(); openAdmin(); });
+document.querySelector('#clearClaimButton').addEventListener('click', () => { document.querySelector('#hostToolsDialog').close(); openClearClaimDialog(); });
 document.querySelector('#editAccountsButton').addEventListener('click', () => { document.querySelector('#hostToolsDialog').close(); openAccountsAdmin(); });
+document.querySelector('#clearClaimItem').addEventListener('change', updateClearClaimFamilies);
+document.querySelector('#clearClaimFamily').addEventListener('change', updateClearClaimQuantities);
+document.querySelector('#clearClaimForm').addEventListener('submit', event => {
+  if (event.submitter?.value === 'cancel') return;
+  event.preventDefault();
+  const item = state.items.find(entry => entry.id === document.querySelector('#clearClaimItem').value);
+  const family = document.querySelector('#clearClaimFamily').value;
+  const quantity = Number(document.querySelector('#clearClaimQuantity').value);
+  if (!item || !family || quantity < 1) return;
+  const removed = removeItemClaims(item, family, quantity);
+  if (!removed) return;
+  document.querySelector('#clearClaimDialog').close();
+  saveState();
+  showToast(`${formatQuantity(removed, item)} of ${item.name} removed from ${contributionDisplayName(family)}.`);
+});
 document.querySelector('#adminAddAccountButton').addEventListener('click', () => {
   const input = document.querySelector('#adminNewAccount');
   const name = input.value.trim();
