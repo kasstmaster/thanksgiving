@@ -14,10 +14,6 @@
         <img src="assets/thanksgiving-header.svg" alt="Three decorative pumpkins above the word Thanksgiving" />
         <time id="eventDate" class="event-date"></time>
       </div>
-      <button class="sign-in-button" id="signInButton" type="button">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a5 5 0 0 0-3 9c-3 1.1-5 3.8-5 7v2h16v-2c0-3.2-2-5.9-5-7a5 5 0 0 0-3-9Z"/></svg>
-        <span>Sign In</span>
-      </button>
     </header>
 
     <main>
@@ -27,13 +23,13 @@
           <h2 id="welcome-title">WE'D LOVE FOR YOU TO BRING A DISH TO SHARE</h2>
           <p class="welcome-note"><em>Choose something delicious to bring. If bringing something isn't practical, simply come and enjoy the evening with us.</em></p>
         </div>
-        <button class="rsvp-button" id="rsvpButton" type="button">RSVP <span>→</span></button>
+        <button class="rsvp-button" id="rsvpButton" type="button">RSVP</button>
       </section>
 
       <section class="summary-strip" aria-label="Event summary">
         <div><strong id="dishCount">0</strong><span>Dishes claimed</span></div>
         <div class="divider"></div>
-        <div><strong id="guestCount">0</strong><span>Guests attending</span></div>
+        <button class="summary-item" id="guestListButton" type="button"><strong id="guestCount">0</strong><span>Guests attending</span></button>
         <div class="divider"></div>
         <div><strong id="remainingCount">0</strong><span>Still needed</span></div>
       </section>
@@ -42,30 +38,18 @@
         <div id="menuGrid" class="menu-grid"></div>
       </section>
 
-      <section class="other-card" aria-labelledby="other-title">
-        <div class="other-icon" aria-hidden="true">+</div>
-        <div class="other-copy">
-          <p class="section-kicker">Other</p>
-          <h2 id="other-title">Don't see your dish? Add it!</h2>
-          <p>Tell us what special something you'll be bringing to the table.</p>
-        </div>
-        <form id="customItemForm" class="other-form">
-          <label><span>Your dish</span><input id="customItemName" required maxlength="60" placeholder="e.g. Grandma's pecan pie" /></label>
-          <label class="quantity-label"><span>How many?</span><input id="customItemQuantity" required type="number" min="1" max="50" value="1" /></label>
-          <button type="submit">Add my dish</button>
-        </form>
-      </section>
     </main>
 
     <footer><div class="mini-pumpkin" aria-hidden="true"></div><p>Made with gratitude for the Meyers family</p><span>♥</span></footer>
 
-    <dialog id="nameDialog">
-      <form method="dialog" id="nameForm" class="modal-card">
+    <dialog id="passwordDialog">
+      <form method="dialog" id="passwordForm" class="modal-card">
         <button class="modal-close" value="cancel" aria-label="Close">×</button>
         <p class="section-kicker">Welcome to the table</p>
-        <h2>First, what's your name?</h2>
-        <p>We'll only ask once while you're on this page.</p>
-        <label><span>Your name</span><input id="guestName" autocomplete="name" required maxlength="50" placeholder="Enter your name" /></label>
+        <h2>Enter your password</h2>
+        <p>Your invitation password connects your RSVP and dishes to your family account.</p>
+        <label><span>Password</span><input id="accountPassword" type="password" autocomplete="current-password" required placeholder="Enter your password" /></label>
+        <p class="form-error" id="accountPasswordError" role="alert"></p>
         <button class="primary-button" value="default">Let's get started</button>
       </form>
     </dialog>
@@ -82,14 +66,24 @@
       </form>
     </dialog>
 
-    <dialog id="signInDialog">
-      <form method="dialog" id="signInForm" class="modal-card">
+    <dialog id="guestListDialog">
+      <form method="dialog" class="modal-card">
         <button class="modal-close" value="cancel" aria-label="Close">×</button>
-        <p class="section-kicker">Host access</p><h2>Sign in to edit</h2>
-        <p>Enter the host password to update dishes and amounts.</p>
-        <label><span>Password</span><input id="password" type="password" required placeholder="Enter password" /></label>
-        <p class="form-error" id="passwordError" role="alert"></p>
-        <button class="primary-button" value="default">Sign in</button>
+        <p class="section-kicker">Our family table</p><h2>Guests attending</h2>
+        <div id="guestList" class="guest-list"></div>
+        <button class="primary-button" value="default">Close</button>
+      </form>
+    </dialog>
+
+    <dialog id="customItemDialog">
+      <form method="dialog" id="customItemForm" class="modal-card">
+        <button class="modal-close" value="cancel" aria-label="Close">×</button>
+        <p class="section-kicker">Bring something special</p><h2>Add your own item</h2>
+        <p>Tell us what you're bringing in this category.</p>
+        <input id="customItemCategory" type="hidden" />
+        <label><span>Your item</span><input id="customItemName" required maxlength="60" placeholder="e.g. Grandma's pecan pie" /></label>
+        <label><span>How many are you bringing?</span><input id="customItemQuantity" required type="number" min="1" max="50" value="1" /></label>
+        <button class="primary-button" value="default">Add my item</button>
       </form>
     </dialog>
 
