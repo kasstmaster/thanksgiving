@@ -1,21 +1,29 @@
-const STORAGE_KEY = 'meyers-thanksgiving-v1';
+const STORAGE_KEY = 'meyers-thanksgiving-v2';
 const HOST_PASSWORD = 'gather'; // Change this before publishing your site.
 
 const defaultItems = [
-  { id: 'cheese-board', name: 'Cheese & charcuterie board', category: 'Appetizers', needed: 1, claims: [] },
-  { id: 'deviled-eggs', name: 'Deviled eggs', category: 'Appetizers', needed: 2, claims: [] },
-  { id: 'turkey', name: 'Roasted turkey', category: 'Main Table', needed: 1, claims: [] },
-  { id: 'ham', name: 'Glazed ham', category: 'Main Table', needed: 1, claims: [] },
-  { id: 'stuffing', name: 'Herb stuffing', category: 'Sides', needed: 2, claims: [] },
-  { id: 'potatoes', name: 'Mashed potatoes', category: 'Sides', needed: 2, claims: [] },
-  { id: 'green-beans', name: 'Green bean casserole', category: 'Sides', needed: 1, claims: [] },
-  { id: 'sweet-potatoes', name: 'Sweet potato casserole', category: 'Sides', needed: 1, claims: [] },
-  { id: 'cranberry', name: 'Cranberry sauce', category: 'Sides', needed: 1, claims: [] },
-  { id: 'rolls', name: 'Dinner rolls', category: 'Sides', needed: 2, claims: [] },
-  { id: 'pumpkin-pie', name: 'Pumpkin pie', category: 'Desserts', needed: 2, claims: [] },
-  { id: 'apple-pie', name: 'Apple pie', category: 'Desserts', needed: 1, claims: [] },
-  { id: 'drinks', name: 'Sparkling drinks', category: 'Drinks', needed: 2, claims: [] },
-  { id: 'cider', name: 'Apple cider', category: 'Drinks', needed: 1, claims: [] }
+  { id: 'ham', name: 'Ham', category: 'Main Table', needed: 1, claims: [] },
+  { id: 'turkey', name: 'Turkey', category: 'Main Table', needed: 1, claims: [] },
+  { id: 'turkey-gravy', name: 'Turkey Gravy', category: 'Sides', needed: 1, claims: [] },
+  { id: 'mashed-potatoes', name: 'Mashed Potatoes', category: 'Sides', needed: 1, claims: [] },
+  { id: 'stuffing', name: 'Stuffing', category: 'Sides', needed: 1, claims: [] },
+  { id: 'green-bean-casserole', name: 'Green Bean Casserole', category: 'Sides', needed: 1, claims: [] },
+  { id: 'mac-n-cheese', name: 'Mac n Cheese', category: 'Sides', needed: 1, claims: [] },
+  { id: 'candied-yams', name: 'Candied Yams', category: 'Sides', needed: 1, claims: [] },
+  { id: 'cranberry-sauce', name: 'Cranberry Sauce', category: 'Sides', needed: 1, claims: [] },
+  { id: 'dinner-rolls', name: 'Dinner Rolls', category: 'Sides', needed: 1, claims: [] },
+  { id: 'deviled-eggs', name: 'Deviled Eggs', category: 'Appetizers', needed: 1, claims: [] },
+  { id: 'chips', name: 'Chips', category: 'Appetizers', needed: 1, claims: [] },
+  { id: 'veggie-tray', name: 'Veggie Tray', category: 'Appetizers', needed: 1, claims: [] },
+  { id: 'dips', name: 'Dips', category: 'Appetizers', needed: 1, claims: [] },
+  { id: 'pumpkin-pie', name: 'Pumpkin Pie', category: 'Desserts', needed: 1, claims: [] },
+  { id: 'cherry-pie', name: 'Cherry Pie', category: 'Desserts', needed: 1, claims: [] },
+  { id: 'apple-pie', name: 'Apple Pie', category: 'Desserts', needed: 1, claims: [] },
+  { id: 'water', name: 'Water', category: 'Drinks', needed: 1, claims: [] },
+  { id: 'soda', name: 'Soda', category: 'Drinks', needed: 1, claims: [] },
+  { id: 'beer', name: 'Beer', category: 'Drinks', needed: 1, claims: [] },
+  { id: 'whiskey', name: 'Whiskey', category: 'Drinks', needed: 1, claims: [] },
+  { id: 'wine', name: 'Wine', category: 'Drinks', needed: 1, claims: [] }
 ];
 const categoryIcons = { Appetizers: '✦', 'Main Table': '♨', Sides: '❦', Desserts: '◇', Drinks: '◌' };
 let state = loadState();
