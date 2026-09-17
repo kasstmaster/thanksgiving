@@ -1,4 +1,6 @@
 const STORAGE_KEY = 'meyers-thanksgiving-v2';
+const BACKUP_STORAGE_KEY = `${STORAGE_KEY}-backup`;
+const LEGACY_STORAGE_KEYS = ['meyers-thanksgiving-v1'];
 const SHARED_STATE_URL = document.querySelector('meta[name="shared-state-url"]')?.content.trim() || '';
 const HOST_PASSWORD = '0810'; // Change this before publishing your site.
 const HOST_DISPLAY_NAME = 'The Host';
@@ -106,44 +108,60 @@ function normalizeState(saved) {
         loaded.events.christmas.items = christmasItems().map(item => ({ ...item, claims: previousClaims.get(item.id) || [] }));
         loaded.events.christmas.menuVersion = CHRISTMAS_MENU_VERSION;
       }
-      if (saved.accountResetVersion !== ACCOUNT_RESET_VERSION) {
-        loaded.accounts = [];
-        Object.values(loaded.events).forEach(eventState => {
-          eventState.items.forEach(item => { item.claims = item.claims.filter(name => name === HOST_DISPLAY_NAME); });
-          eventState.rsvps = eventState.rsvps.filter(rsvp => rsvp.name === HOST_DISPLAY_NAME);
-        });
-        loaded.accountResetVersion = ACCOUNT_RESET_VERSION;
-      }
-      if (saved.signupResetVersion !== SIGNUP_RESET_VERSION) {
-        Object.values(loaded.events).forEach(eventState => {
-          eventState.items.forEach(item => { item.claims = []; });
-          eventState.rsvps = [];
-        });
-        loaded.signupResetVersion = SIGNUP_RESET_VERSION;
-      }
+      // Version markers describe the current schema; they must never be used
+      // to erase real guest data from an older browser copy. Previous builds
+      // cleared accounts, RSVPs, and claims when either marker was absent.
+      loaded.accountResetVersion = ACCOUNT_RESET_VERSION;
+      loaded.signupResetVersion = SIGNUP_RESET_VERSION;
       Object.values(loaded.events).forEach(eventState => {
         eventState.quantityUnits = eventState.quantityUnits?.length ? eventState.quantityUnits : structuredClone(DEFAULT_QUANTITY_UNITS);
       });
       return loaded;
     }
-    // Upgrade the original single-Thanksgiving data without carrying over old signups.
+    // Upgrade the original single-Thanksgiving data. Keep its sign-ups so an
+    // older browser copy can be used to recover information after a bad sync.
     const upgraded = initialAppState();
     upgraded.events.thanksgiving = {
-      items: (saved.items || structuredClone(defaultItems)).map(item => ({ ...item, claims: [] })),
-      rsvps: [],
+      items: saved.items || structuredClone(defaultItems),
+      rsvps: saved.rsvps || [],
       eventDate: saved.eventDate || DEFAULT_EVENT_DATE, accountSelectionResetFor: saved.accountSelectionResetFor || '',
       quantityUnits: structuredClone(DEFAULT_QUANTITY_UNITS)
     };
+    const recoveredNames = new Set([
+      ...upgraded.events.thanksgiving.rsvps.map(rsvp => rsvp.name),
+      ...upgraded.events.thanksgiving.items.flatMap(item => item.claims || [])
+    ].filter(name => name && name !== HOST_DISPLAY_NAME));
+    upgraded.accounts = [...recoveredNames].map(name => ({ name, selected: true }));
     return upgraded;
   } catch { return initialAppState(); }
 }
 function loadState() {
-  try { return normalizeState(JSON.parse(localStorage.getItem(STORAGE_KEY))); }
-  catch { return initialAppState(); }
+  const candidates = [STORAGE_KEY, BACKUP_STORAGE_KEY, ...LEGACY_STORAGE_KEYS].flatMap(key => {
+    try {
+      const value = localStorage.getItem(key);
+      return value ? [normalizeState(JSON.parse(value))] : [];
+    } catch { return []; }
+  });
+  if (!candidates.length) return initialAppState();
+  const recovered = candidates.reduce((best, candidate) => stateRecoveryScore(candidate) > stateRecoveryScore(best) ? candidate : best);
+  storeLocalState(recovered);
+  return recovered;
+}
+function stateRecoveryScore(candidate) {
+  const events = Object.values(candidate.events || {});
+  const accounts = candidate.accounts?.length || 0;
+  const rsvps = events.reduce((total, event) => total + (event.rsvps?.length || 0), 0);
+  const claims = events.reduce((total, event) => total + (event.items || []).reduce((sum, item) => sum + (item.claims?.length || 0), 0), 0);
+  return accounts * 10000 + rsvps * 100 + claims;
+}
+function storeLocalState(nextState) {
+  const current = localStorage.getItem(STORAGE_KEY);
+  if (current && current !== JSON.stringify(nextState)) localStorage.setItem(BACKUP_STORAGE_KEY, current);
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(nextState));
 }
 function saveState() {
   appState.events[appState.activeEventId] = state;
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(appState));
+  storeLocalState(appState);
   render();
   queueSharedStateSave();
 }
@@ -176,14 +194,14 @@ async function loadSharedState() {
   try {
     const response = await fetch(SHARED_STATE_URL, { cache: 'no-store' });
     if (response.status === 404 || response.status === 204) {
-      queueSharedStateSave();
+      if (SHARED_STATE_URL) queueSharedStateSave();
       return;
     }
     if (!response.ok) throw new Error(`Shared state load failed (${response.status})`);
     const saved = await response.json();
     appState = normalizeState(saved);
     state = appState.events[appState.activeEventId];
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(appState));
+    storeLocalState(appState);
     render();
   } catch (error) {
     console.error(error);
@@ -617,12 +635,19 @@ document.querySelector('#adminAddButton').addEventListener('click', () => {
   document.querySelector('#adminNewItem').value = ''; saveState(); openAdmin();
 });
 
+async function startApp() {
+  // Wait for a configured shared copy before allowing sign-in. Without one,
+  // retain the richest recoverable browser copy instead of replacing it.
+  await loadSharedState();
+  render();
+  document.querySelector('#passwordDialog').showModal();
+}
+
 render();
-loadSharedState();
+startApp();
 singleColumnMenu.addEventListener('change', render);
 window.addEventListener('focus', loadSharedState);
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible') loadSharedState();
 });
 if (SHARED_STATE_URL) setInterval(loadSharedState, 30000);
-setTimeout(() => document.querySelector('#passwordDialog').showModal(), 450);
