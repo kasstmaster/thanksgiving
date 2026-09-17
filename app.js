@@ -35,6 +35,7 @@ let state = loadState();
 let guestName = '';
 let pendingAccountAction = null;
 let hostAuthenticated = false;
+let hostToolsRequested = false;
 
 function initialState() { return { items: structuredClone(defaultItems), accounts: structuredClone(GUEST_ACCOUNTS), rsvps: [], eventDate: DEFAULT_EVENT_DATE }; }
 function loadState() {
@@ -48,9 +49,11 @@ function escapeHtml(value) { const el = document.createElement('div'); el.textCo
 function escapeAttribute(value) { return escapeHtml(value).replaceAll('"', '&quot;').replaceAll("'", '&#39;'); }
 function normalizeAccountName(value) { return value.replace(/\s/g, '').toLocaleLowerCase(); }
 function showToast(message) { const toast = document.querySelector('#toast'); toast.textContent = message; toast.classList.add('show'); setTimeout(() => toast.classList.remove('show'), 2600); }
+function updateHostToolsButton() { document.querySelector('#hostToolsButton').textContent = hostAuthenticated ? 'Host tools' : 'Settings'; }
 function ensureAccount(callback) {
   if (guestName) return callback();
   pendingAccountAction = callback;
+  hostToolsRequested = false;
   const dialog = document.querySelector('#passwordDialog');
   if (!dialog.open) dialog.showModal();
 }
@@ -102,10 +105,14 @@ document.querySelector('#passwordForm').addEventListener('submit', event => {
   const accountName = document.querySelector('#accountPassword').value;
   if (accountName.toLocaleLowerCase() === HOST_PASSWORD.toLocaleLowerCase()) {
     hostAuthenticated = true;
+    updateHostToolsButton();
     pendingAccountAction = null;
+    const shouldOpenHostTools = hostToolsRequested;
+    hostToolsRequested = false;
     document.querySelector('#passwordDialog').close();
     document.querySelector('#accountPasswordError').textContent = '';
-    document.querySelector('#hostToolsDialog').showModal();
+    if (shouldOpenHostTools) document.querySelector('#hostToolsDialog').showModal();
+    else showToast('Host sign-in complete. Use Host tools when you are ready.');
     return;
   }
   const normalizedAccountName = normalizeAccountName(accountName);
@@ -193,8 +200,12 @@ function renameAccount(index, input) {
 document.querySelector('#hostToolsButton').addEventListener('click', () => {
   pendingAccountAction = null;
   if (hostAuthenticated) document.querySelector('#hostToolsDialog').showModal();
-  else if (!document.querySelector('#passwordDialog').open) document.querySelector('#passwordDialog').showModal();
+  else if (!document.querySelector('#passwordDialog').open) {
+    hostToolsRequested = true;
+    document.querySelector('#passwordDialog').showModal();
+  }
 });
+document.querySelector('#passwordDialog').addEventListener('close', () => { hostToolsRequested = false; });
 document.querySelector('#editItemsButton').addEventListener('click', () => { document.querySelector('#hostToolsDialog').close(); openAdmin(); });
 document.querySelector('#editAccountsButton').addEventListener('click', () => { document.querySelector('#hostToolsDialog').close(); openAccountsAdmin(); });
 document.querySelector('#adminAddAccountButton').addEventListener('click', () => {
