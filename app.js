@@ -172,9 +172,25 @@ function saveState() {
 let sharedSaveTimer;
 let sharedSavePending = false;
 let sharedSaveInProgress = false;
+let sharedSaveError = false;
+function renderSyncStatus() {
+  const status = document.querySelector('#syncStatus');
+  if (!status) return;
+  if (!SHARED_STATE_URL) {
+    status.className = 'sync-status local-only';
+    status.innerHTML = '<strong>Saved on this device only</strong>Menu items appear everywhere because the defaults are published with the site. Accounts, claims, and RSVPs will not reach other devices until the shared-state Worker URL is configured.';
+    return;
+  }
+  status.className = `sync-status${sharedSaveError ? ' error' : ''}`;
+  status.innerHTML = sharedSaveError
+    ? '<strong>Cross-device sync needs attention</strong>The latest change is safe on this device and will be retried after the connection is restored.'
+    : `<strong>Cross-device saving is on</strong>${sharedSavePending || sharedSaveInProgress ? 'Saving the complete account, claim, RSVP, event, and menu state…' : 'Accounts, claims, RSVPs, events, and menus use the same shared save.'}`;
+}
 function queueSharedStateSave() {
   if (!SHARED_STATE_URL) return;
   sharedSavePending = true;
+  sharedSaveError = false;
+  renderSyncStatus();
   clearTimeout(sharedSaveTimer);
   sharedSaveTimer = setTimeout(saveSharedState, 250);
 }
@@ -190,13 +206,16 @@ async function saveSharedState() {
       body: JSON.stringify(appState)
     });
     if (!response.ok) throw new Error(`Shared state save failed (${response.status})`);
+    sharedSaveError = false;
   } catch (error) {
     console.error(error);
     saveFailed = true;
+    sharedSaveError = true;
     sharedSavePending = true;
     showToast('This change is saved on this device, but could not sync to other devices.');
   } finally {
     sharedSaveInProgress = false;
+    renderSyncStatus();
     // A change may have been made while the previous request was running.
     if (sharedSavePending && !saveFailed) {
       clearTimeout(sharedSaveTimer);
@@ -328,6 +347,7 @@ function render() {
   document.body.className = `theme-${event.theme}`;
   document.title = `The Meyers ${event.name}`;
   document.querySelector('meta[name="description"]').content = `The Meyers ${event.name} potluck and RSVP page.`;
+  renderSyncStatus();
   const headerImage = document.querySelector('#eventHeaderImage');
   headerImage.src = event.header;
   headerImage.alt = `${event.name} celebration header`;
