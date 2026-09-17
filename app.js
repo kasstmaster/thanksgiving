@@ -36,6 +36,7 @@ let guestName = '';
 let pendingAccountAction = null;
 let hostAuthenticated = false;
 let hostToolsRequested = false;
+const singleColumnMenu = window.matchMedia('(max-width: 800px)');
 
 function initialState() { return { items: structuredClone(defaultItems), accounts: structuredClone(GUEST_ACCOUNTS), rsvps: [], eventDate: DEFAULT_EVENT_DATE, accountSelectionResetFor: '' }; }
 function localDateString(date = new Date()) {
@@ -78,12 +79,18 @@ function render() {
   dateElement.dateTime = state.eventDate;
   dateElement.textContent = new Intl.DateTimeFormat('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }).format(eventDate);
   const categories = [...new Set(state.items.map(item => item.category))];
-  document.querySelector('#menuGrid').innerHTML = categories.map(category => `
+  const categoryCard = category => `
     <article class="category-card">
       <div class="category-title"><h3>${escapeHtml(category)}</h3></div>
       ${state.items.filter(item => item.category === category).map(renderDish).join('')}
       <button class="category-other" type="button" data-custom-category="${escapeHtml(category)}">I'll bring something else</button>
-    </article>`).join('');
+    </article>`;
+  const menuColumns = Array.from({ length: singleColumnMenu.matches ? 1 : 2 }, () => []);
+  categories.forEach((category, index) => menuColumns[index % menuColumns.length].push(categoryCard(category)));
+  document.querySelector('#menuGrid').innerHTML = menuColumns
+    .filter(column => column.length)
+    .map(column => `<div class="menu-column">${column.join('')}</div>`)
+    .join('');
   const claimed = state.items.reduce((sum, item) => sum + item.claims.length, 0);
   const needed = state.items.reduce((sum, item) => sum + Math.max(0, item.needed - item.claims.length), 0);
   const guests = state.rsvps.reduce((sum, rsvp) => sum + rsvp.adults + rsvp.children, 0);
@@ -243,6 +250,7 @@ document.querySelector('#adminAddButton').addEventListener('click', () => {
 });
 
 render();
+singleColumnMenu.addEventListener('change', render);
 setTimeout(() => document.querySelector('#passwordDialog').showModal(), 450);
 setInterval(() => {
   if (!resetAccountSelectionAfterEvent(state)) return;
