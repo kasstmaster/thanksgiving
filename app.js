@@ -139,8 +139,10 @@ function render() {
   document.body.className = `theme-${event.theme}`;
   document.title = `The Meyers ${event.name}`;
   document.querySelector('meta[name="description"]').content = `The Meyers ${event.name} potluck and RSVP page.`;
-  document.querySelector('#eventHeaderImage').src = event.header;
-  document.querySelector('#eventHeaderImage').alt = `${event.name} celebration header`;
+  const headerImage = document.querySelector('#eventHeaderImage');
+  headerImage.src = event.header;
+  headerImage.alt = `${event.name} celebration header`;
+  headerImage.hidden = false;
   const eventDate = new Date(`${state.eventDate}T12:00:00`);
   const dateElement = document.querySelector('#eventDate');
   dateElement.dateTime = state.eventDate;
