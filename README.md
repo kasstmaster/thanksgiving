@@ -75,9 +75,9 @@ shared copy; browser storage is only an offline fallback.
 > **Important:** When `shared-state-url` is blank, sign-ups are stored only in
 > each visitor's browser and are not shared or committed to GitHub. The app
 > retains a local backup and will recover the browser copy containing the most
-> accounts, RSVPs, and claims if an empty state was previously loaded. Also note
+> accounts, RSVPs, and claims if an empty state was previously loaded. Older
+> saved copies are upgraded without deleting their guest data. Also note
 > that last-name sign-in on a
 > static website is only a convenience—not secure authentication—because
 > visitors can view the site's source code. Protect the shared endpoint with
 > appropriate access controls if RSVP names must remain private.
-

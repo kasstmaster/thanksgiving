@@ -109,21 +109,11 @@ function normalizeState(saved) {
         loaded.events.christmas.items = christmasItems().map(item => ({ ...item, claims: previousClaims.get(item.id) || [] }));
         loaded.events.christmas.menuVersion = CHRISTMAS_MENU_VERSION;
       }
-      if (saved.accountResetVersion !== ACCOUNT_RESET_VERSION) {
-        loaded.accounts = [];
-        Object.values(loaded.events).forEach(eventState => {
-          eventState.items.forEach(item => { item.claims = item.claims.filter(name => name === HOST_DISPLAY_NAME); });
-          eventState.rsvps = eventState.rsvps.filter(rsvp => rsvp.name === HOST_DISPLAY_NAME);
-        });
-        loaded.accountResetVersion = ACCOUNT_RESET_VERSION;
-      }
-      if (saved.signupResetVersion !== SIGNUP_RESET_VERSION) {
-        Object.values(loaded.events).forEach(eventState => {
-          eventState.items.forEach(item => { item.claims = []; });
-          eventState.rsvps = [];
-        });
-        loaded.signupResetVersion = SIGNUP_RESET_VERSION;
-      }
+      // Version markers describe the current schema; they must never be used
+      // to erase real guest data from an older browser copy. Previous builds
+      // cleared accounts, RSVPs, and claims when either marker was absent.
+      loaded.accountResetVersion = ACCOUNT_RESET_VERSION;
+      loaded.signupResetVersion = SIGNUP_RESET_VERSION;
       Object.values(loaded.events).forEach(eventState => {
         eventState.quantityUnits = eventState.quantityUnits?.length ? eventState.quantityUnits : structuredClone(DEFAULT_QUANTITY_UNITS);
       });
