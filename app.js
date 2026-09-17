@@ -305,6 +305,10 @@ document.querySelector('#customItemForm').addEventListener('submit', event => {
 });
 document.querySelector('#claimQuantityForm').addEventListener('submit', event => {
   event.preventDefault();
+  if (event.submitter?.value === 'cancel') {
+    document.querySelector('#claimQuantityDialog').close();
+    return;
+  }
   const item = state.items.find(entry => entry.id === pendingClaimItemId);
   const requestedQuantity = Number(document.querySelector('#claimQuantity').value);
   if (!item || item.claims.includes(guestName) || requestedQuantity < 1) return;
