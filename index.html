@@ -142,8 +142,22 @@
         <div class="host-tool-actions">
           <button id="manageEventsButton" type="button"><strong>Manage events</strong><span>Choose which holiday guests can see</span></button>
           <button id="editItemsButton" type="button"><strong>Edit menu items</strong><span>Add, change, or remove dishes</span></button>
+          <button id="clearClaimButton" type="button"><strong>Clear a claim</strong><span>Remove a dish quantity from a family</span></button>
           <button id="editAccountsButton" type="button"><strong>Manage accounts</strong><span>Choose which families can sign in</span></button>
         </div>
+      </form>
+    </dialog>
+
+    <dialog id="clearClaimDialog">
+      <form method="dialog" id="clearClaimForm" class="modal-card">
+        <button class="modal-close" value="cancel" aria-label="Close">×</button>
+        <p class="section-kicker">Host dashboard</p><h2>Clear a claim</h2>
+        <p>Select the dish, family, and quantity you want to remove.</p>
+        <label><span>Item</span><select id="clearClaimItem" required></select></label>
+        <label><span>Family</span><select id="clearClaimFamily" required></select></label>
+        <label><span>Quantity</span><select id="clearClaimQuantity" required></select></label>
+        <p class="form-error" id="clearClaimError" role="alert"></p>
+        <button class="primary-button" id="clearClaimSubmit" value="default">Clear claim</button>
       </form>
     </dialog>
 
