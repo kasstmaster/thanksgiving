@@ -13,6 +13,14 @@ GitHub will provide a public link you can share with your guests.
 
 ## Save everything permanently in GitHub
 
+The published menu can appear to be synced even when syncing is off because its
+defaults are part of `app.js` and `data/app-state.json`. Browser-created
+accounts, claims, and RSVPs are different: they can cross devices only when the
+`shared-state-url` in `index.html` points to the deployed Worker below. The host
+dashboard reports **Saved on this device only** until that URL is configured;
+afterward, every save uploads the complete state (including menus, accounts,
+claims, and RSVPs) together.
+
 The app always loads `data/app-state.json` from this repository before opening
 the sign-in dialog. That checked-in file is the canonical fallback on every
 phone and computer, so accounts, RSVPs, claims, dates, and menu edits placed in
