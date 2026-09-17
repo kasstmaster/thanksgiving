@@ -5,6 +5,7 @@ const DEFAULT_EVENT_DATE = '2026-11-28';
 const DEFAULT_CHRISTMAS_DATE = '2026-12-25';
 const CHRISTMAS_MENU_VERSION = 2;
 const ACCOUNT_RESET_VERSION = 1;
+const SIGNUP_RESET_VERSION = 1;
 const DEFAULT_QUANTITY_UNITS = [
   { id: 'item', label: 'Item', locked: true },
   { id: 'dozen', label: 'Dozen' }
@@ -69,6 +70,7 @@ function initialAppState() {
   return {
     activeEventId: 'thanksgiving',
     accountResetVersion: ACCOUNT_RESET_VERSION,
+    signupResetVersion: SIGNUP_RESET_VERSION,
     accounts: structuredClone(GUEST_ACCOUNTS),
     events: {
       thanksgiving: makeEvent(structuredClone(defaultItems), DEFAULT_EVENT_DATE),
@@ -112,16 +114,23 @@ function loadState() {
         });
         loaded.accountResetVersion = ACCOUNT_RESET_VERSION;
       }
+      if (saved.signupResetVersion !== SIGNUP_RESET_VERSION) {
+        Object.values(loaded.events).forEach(eventState => {
+          eventState.items.forEach(item => { item.claims = []; });
+          eventState.rsvps = [];
+        });
+        loaded.signupResetVersion = SIGNUP_RESET_VERSION;
+      }
       Object.values(loaded.events).forEach(eventState => {
         eventState.quantityUnits = eventState.quantityUnits?.length ? eventState.quantityUnits : structuredClone(DEFAULT_QUANTITY_UNITS);
       });
       return loaded;
     }
-    // Upgrade the original single-Thanksgiving data while retaining host entries.
+    // Upgrade the original single-Thanksgiving data without carrying over old signups.
     const upgraded = initialAppState();
     upgraded.events.thanksgiving = {
-      items: (saved.items || structuredClone(defaultItems)).map(item => ({ ...item, claims: item.claims.filter(name => name === HOST_DISPLAY_NAME) })),
-      rsvps: (saved.rsvps || []).filter(rsvp => rsvp.name === HOST_DISPLAY_NAME),
+      items: (saved.items || structuredClone(defaultItems)).map(item => ({ ...item, claims: [] })),
+      rsvps: [],
       eventDate: saved.eventDate || DEFAULT_EVENT_DATE, accountSelectionResetFor: saved.accountSelectionResetFor || '',
       quantityUnits: structuredClone(DEFAULT_QUANTITY_UNITS)
     };
@@ -179,6 +188,9 @@ function householdDisplayName(value) {
 }
 function contributionDisplayName(value) {
   return value.trim() === HOST_DISPLAY_NAME ? 'Host' : householdDisplayName(value);
+}
+function hostFirstRsvps(rsvps) {
+  return [...rsvps].sort((a, b) => Number(b.name === HOST_DISPLAY_NAME) - Number(a.name === HOST_DISPLAY_NAME));
 }
 function accountSignInNames(accountName) {
   return accountName.split('/').flatMap(household => {
@@ -370,7 +382,7 @@ document.querySelector('#rsvpForm').addEventListener('submit', () => {
 document.querySelector('#guestListButton').addEventListener('click', () => {
   if (!hostAuthenticated) return;
   const list = document.querySelector('#guestList');
-  list.innerHTML = state.rsvps.length ? state.rsvps.map(rsvp => `<div class="guest-entry"><strong>${escapeHtml(contributionDisplayName(rsvp.name))}</strong><span>${rsvp.adults} adult${rsvp.adults === 1 ? '' : 's'} · ${rsvp.children} child${rsvp.children === 1 ? '' : 'ren'}</span></div>`).join('') : '<p class="guest-empty">No guests have RSVP’d yet.</p>';
+  list.innerHTML = state.rsvps.length ? hostFirstRsvps(state.rsvps).map(rsvp => `<div class="guest-entry"><strong>${escapeHtml(contributionDisplayName(rsvp.name))}</strong><span>${rsvp.adults} adult${rsvp.adults === 1 ? '' : 's'} · ${rsvp.children} child${rsvp.children === 1 ? '' : 'ren'}</span></div>`).join('') : '<p class="guest-empty">No guests have RSVP’d yet.</p>';
   document.querySelector('#guestListDialog').showModal();
 });
 function openAdmin() {
