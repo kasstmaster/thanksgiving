@@ -140,11 +140,31 @@ function normalizeAccountName(value) {
     .replace(/^the\s+/, '')
     .replace(/\s/g, '');
 }
-function accountPasswordMatches(password, accountName) {
-  const normalizedPassword = normalizeAccountName(password);
-  const normalizedAccount = normalizeAccountName(accountName);
-  return normalizedPassword === normalizedAccount
-    || (normalizedAccount.endsWith('s') && normalizedPassword === normalizedAccount.slice(0, -1));
+function householdDisplayName(value) {
+  const name = value.trim();
+  if (!name || name === HOST_DISPLAY_NAME) return name;
+  if (/^the\s+/i.test(name)) return name.replace(/^the\s+/i, 'The ');
+  const firstHousehold = name.split('/')[0].trim();
+  const lastName = firstHousehold.includes(' ')
+    ? firstHousehold.slice(firstHousehold.lastIndexOf(' ') + 1)
+    : firstHousehold;
+  if (/['’]$/.test(lastName)) return `The ${lastName}`;
+  return `The ${lastName}${/s$/i.test(lastName) ? "'" : 's'}`;
+}
+function accountSignInNames(accountName) {
+  return accountName.split('/').flatMap(household => {
+    const entry = household.trim();
+    const lastSpace = entry.lastIndexOf(' ');
+    if (lastSpace < 0) return [entry];
+    const lastName = entry.slice(lastSpace + 1).trim();
+    return entry.slice(0, lastSpace).split(',')
+      .map(firstName => `${firstName.trim()} ${lastName}`)
+      .filter(name => name.length > lastName.length + 1);
+  });
+}
+function accountNameMatches(enteredName, accountName) {
+  const normalizedEntry = normalizeAccountName(enteredName);
+  return accountSignInNames(accountName).some(name => normalizeAccountName(name) === normalizedEntry);
 }
 function showToast(message) { const toast = document.querySelector('#toast'); toast.textContent = message; toast.classList.add('show'); setTimeout(() => toast.classList.remove('show'), 2600); }
 function updateHostToolsButton() { document.querySelector('#hostToolsButton').textContent = hostAuthenticated ? 'Host tools' : 'Settings'; }
@@ -199,7 +219,7 @@ function render() {
 function renderDish(item) {
   const mine = guestName && item.claims.includes(guestName);
   const remaining = Math.max(0, item.needed - item.claims.length);
-  const claimants = [...new Set(item.claims)].map(escapeHtml).join(', ');
+  const claimants = [...new Set(item.claims)].map(name => escapeHtml(householdDisplayName(name))).join(', ');
   const status = item.optional ? 'Optional' : (remaining ? `${remaining} of ${item.needed} still needed` : 'All set — thank you!');
   return `<div class="dish ${remaining === 0 && !mine ? 'filled' : ''}"><h4>${escapeHtml(item.name)}</h4><div class="dish-meta">${status}${claimants ? ` · ${claimants}` : ''}</div><button data-claim="${item.id}" ${remaining === 0 && !mine ? 'disabled' : ''} class="${mine ? 'claimed' : ''}">${mine ? '✓ Bringing it' : "I'll bring this"}</button></div>`;
 }
@@ -207,7 +227,7 @@ function claimItem(id) {
   ensureAccount(() => {
     const item = state.items.find(entry => entry.id === id); if (!item) return;
     if (item.claims.includes(guestName)) { item.claims = item.claims.filter(name => name !== guestName); showToast(`Removed ${item.name} from your list.`); }
-    else if (item.claims.length < item.needed) { item.claims.push(guestName); showToast(`Thanks, ${guestName}! You're bringing ${item.name}.`); }
+    else if (item.claims.length < item.needed) { item.claims.push(guestName); showToast(`Thanks, ${householdDisplayName(guestName)}! You're bringing ${item.name}.`); }
     saveState();
   });
 }
@@ -237,8 +257,8 @@ document.querySelector('#passwordForm').addEventListener('submit', event => {
     else showToast('Host sign-in complete. You can RSVP and bring items as The Meyers.');
     return;
   }
-  const account = appState.accounts.find(entry => accountPasswordMatches(accountName, entry.name));
-  if (!account) { document.querySelector('#accountPasswordError').textContent = 'That last name is not recognized.'; return; }
+  const account = appState.accounts.find(entry => accountNameMatches(accountName, entry.name));
+  if (!account) { document.querySelector('#accountPasswordError').textContent = 'That first and last name is not recognized.'; return; }
   if (!account.selected) { document.querySelector('#accountPasswordError').textContent = 'This account is not currently invited.'; return; }
   guestName = account.name;
   document.querySelector('#accountPasswordError').textContent = '';
@@ -274,7 +294,7 @@ document.querySelector('#rsvpForm').addEventListener('submit', () => {
 });
 document.querySelector('#guestListButton').addEventListener('click', () => {
   const list = document.querySelector('#guestList');
-  list.innerHTML = state.rsvps.length ? state.rsvps.map(rsvp => `<div class="guest-entry"><strong>${escapeHtml(rsvp.name)}</strong><span>${rsvp.adults} adult${rsvp.adults === 1 ? '' : 's'} · ${rsvp.children} child${rsvp.children === 1 ? '' : 'ren'}</span></div>`).join('') : '<p class="guest-empty">No guests have RSVP’d yet.</p>';
+  list.innerHTML = state.rsvps.length ? state.rsvps.map(rsvp => `<div class="guest-entry"><strong>${escapeHtml(householdDisplayName(rsvp.name))}</strong><span>${rsvp.adults} adult${rsvp.adults === 1 ? '' : 's'} · ${rsvp.children} child${rsvp.children === 1 ? '' : 'ren'}</span></div>`).join('') : '<p class="guest-empty">No guests have RSVP’d yet.</p>';
   document.querySelector('#guestListDialog').showModal();
 });
 function openAdmin() {
@@ -289,7 +309,7 @@ function openAdmin() {
 }
 function openAccountsAdmin() {
   document.querySelector('#adminAccountError').textContent = '';
-  document.querySelector('#adminAccounts').innerHTML = appState.accounts.length ? appState.accounts.map((account, index) => `<div class="account-row" data-account-index="${index}"><label class="account-selection"><input type="checkbox" ${account.selected ? 'checked' : ''}><span>Can sign in</span></label><input value="${escapeAttribute(account.name)}" maxlength="60" aria-label="Account name"><button type="button" aria-label="Delete ${escapeAttribute(account.name)} account">×</button></div>`).join('') : '<p class="guest-empty">No guest accounts yet.</p>';
+  document.querySelector('#adminAccounts').innerHTML = appState.accounts.length ? appState.accounts.map((account, index) => `<div class="account-row" data-account-index="${index}"><label class="account-selection"><input type="checkbox" ${account.selected ? 'checked' : ''}><span>Can sign in</span></label><input value="${escapeAttribute(account.name)}" maxlength="120" aria-label="Account name"><button type="button" aria-label="Delete ${escapeAttribute(account.name)} account">×</button></div>`).join('') : '<p class="guest-empty">No guest accounts yet.</p>';
   document.querySelectorAll('.account-row').forEach(row => {
     const [selection, name, remove] = row.children;
     selection.querySelector('input').addEventListener('change', event => {
@@ -364,7 +384,7 @@ document.querySelector('#adminAddAccountButton').addEventListener('click', () =>
   const name = input.value.trim();
   if (!name) { document.querySelector('#adminAccountError').textContent = 'Enter a last name.'; return; }
   if (appState.accounts.some(account => normalizeAccountName(account.name) === normalizeAccountName(name))) { document.querySelector('#adminAccountError').textContent = 'That account already exists.'; return; }
-  appState.accounts.push({ name, selected: false }); input.value = ''; saveState(); openAccountsAdmin(); showToast(`${name} account added. Enable it to allow sign-in.`);
+  appState.accounts.push({ name, selected: false }); input.value = ''; saveState(); openAccountsAdmin(); showToast(`${householdDisplayName(name)} account added. Enable it to allow sign-in.`);
 });
 document.querySelector('#adminEventDate').addEventListener('change', event => { if (!event.target.value) return; state.eventDate = event.target.value; state.accountSelectionResetFor = ''; saveState(); showToast('Event date updated.'); });
 document.querySelector('#adminAddButton').addEventListener('click', () => {
