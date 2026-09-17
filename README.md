@@ -13,9 +13,9 @@ GitHub will provide a public link you can share with your guests.
 
 ## Customize
 
-- Enter the host password on the welcome prompt to open the host dashboard and update the event date or menu.
+- Select **Host tools** and enter the host password to edit the menu, update the event date, or add, rename, and remove guest accounts.
 - Update `HOST_PASSWORD` near the top of `app.js` (the starter password is `gather`).
-- Add each invited household's last name to `GUEST_ACCOUNTS` in `app.js`. That name is also their sign-in name; capitalization and spaces are ignored, so `Raudman`, `raudman`, and `Raud man` all match the included **Raudman** account.
+- `GUEST_ACCOUNTS` in `app.js` supplies the initial invited households. You can then manage accounts from **Host tools** without editing code. An account name is also its sign-in name; capitalization and spaces are ignored, so `Raudman`, `raudman`, and `Raud man` all match the included **Raudman** account.
 - Update `defaultItems` in `app.js` to change the initial menu.
 
 > **Important:** This zero-setup version stores sign-ups in each visitor's browser. That makes it ideal as a demo or for one shared tablet, but sign-ups do not synchronize between different devices. For a public multi-device event, connect the state functions in `app.js` to a hosted database such as Firebase or Supabase. Also note that last-name sign-in on a static website is only a convenience—not secure authentication—because visitors can view the site's source code.

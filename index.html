@@ -10,8 +10,9 @@
   </head>
   <body>
     <header class="site-header">
+      <button class="host-tools-button" id="hostToolsButton" type="button" aria-haspopup="dialog">Host tools</button>
       <div class="header-art">
-        <img src="https://i.postimg.cc/VsJPvJZh/Website-Header.png" alt="Thanksgiving celebration header" />
+        <img src="https://i.postimg.cc/90gnCYy2/Website-Header.png" alt="Thanksgiving celebration header" />
         <time id="eventDate" class="event-date"></time>
       </div>
     </header>
@@ -106,6 +107,33 @@
           <input id="adminNewAmount" type="number" min="1" max="50" value="1" aria-label="Amount needed" />
           <button id="adminAddButton" type="button">Add</button>
         </div>
+        <button class="primary-button" value="default">Done editing</button>
+      </form>
+    </dialog>
+
+    <dialog id="hostToolsDialog">
+      <form method="dialog" class="modal-card">
+        <button class="modal-close" value="cancel" aria-label="Close">×</button>
+        <p class="section-kicker">Host dashboard</p><h2>What would you like to edit?</h2>
+        <p>Manage the menu and invited family accounts from here.</p>
+        <div class="host-tool-actions">
+          <button id="editItemsButton" type="button"><strong>Edit menu items</strong><span>Add, change, or remove dishes</span></button>
+          <button id="editAccountsButton" type="button"><strong>Manage accounts</strong><span>Add, rename, or remove families</span></button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="accountsDialog" class="wide-dialog">
+      <form method="dialog" class="modal-card">
+        <button class="modal-close" value="cancel" aria-label="Close">×</button>
+        <p class="section-kicker">Host dashboard</p><h2>Manage accounts</h2>
+        <p>Account names are the last names guests use to sign in.</p>
+        <div id="adminAccounts" class="admin-accounts"></div>
+        <div class="account-add">
+          <input id="adminNewAccount" placeholder="Family last name" maxlength="60" aria-label="New account name" />
+          <button id="adminAddAccountButton" type="button">Add account</button>
+        </div>
+        <p class="form-error" id="adminAccountError" role="alert"></p>
         <button class="primary-button" value="default">Done editing</button>
       </form>
     </dialog>

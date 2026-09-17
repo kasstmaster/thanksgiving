@@ -34,16 +34,18 @@ const GUEST_ACCOUNTS = [
 let state = loadState();
 let guestName = '';
 let pendingAccountAction = null;
+let hostAuthenticated = false;
 
-function initialState() { return { items: structuredClone(defaultItems), rsvps: [], eventDate: DEFAULT_EVENT_DATE }; }
+function initialState() { return { items: structuredClone(defaultItems), accounts: structuredClone(GUEST_ACCOUNTS), rsvps: [], eventDate: DEFAULT_EVENT_DATE }; }
 function loadState() {
   try {
     const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
-    return saved ? { ...saved, rsvps: saved.rsvps || [], eventDate: saved.eventDate || DEFAULT_EVENT_DATE } : initialState();
+    return saved ? { ...saved, accounts: saved.accounts || structuredClone(GUEST_ACCOUNTS), rsvps: saved.rsvps || [], eventDate: saved.eventDate || DEFAULT_EVENT_DATE } : initialState();
   } catch { return initialState(); }
 }
 function saveState() { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); render(); }
 function escapeHtml(value) { const el = document.createElement('div'); el.textContent = value; return el.innerHTML; }
+function escapeAttribute(value) { return escapeHtml(value).replaceAll('"', '&quot;').replaceAll("'", '&#39;'); }
 function normalizeAccountName(value) { return value.replace(/\s/g, '').toLocaleLowerCase(); }
 function showToast(message) { const toast = document.querySelector('#toast'); toast.textContent = message; toast.classList.add('show'); setTimeout(() => toast.classList.remove('show'), 2600); }
 function ensureAccount(callback) {
@@ -99,13 +101,15 @@ document.querySelector('#passwordForm').addEventListener('submit', event => {
   event.preventDefault();
   const accountName = document.querySelector('#accountPassword').value;
   if (accountName === HOST_PASSWORD) {
+    hostAuthenticated = true;
+    pendingAccountAction = null;
     document.querySelector('#passwordDialog').close();
     document.querySelector('#accountPasswordError').textContent = '';
-    openAdmin();
+    document.querySelector('#hostToolsDialog').showModal();
     return;
   }
   const normalizedAccountName = normalizeAccountName(accountName);
-  const account = GUEST_ACCOUNTS.find(entry => normalizeAccountName(entry.name) === normalizedAccountName);
+  const account = state.accounts.find(entry => normalizeAccountName(entry.name) === normalizedAccountName);
   if (!account) { document.querySelector('#accountPasswordError').textContent = 'That last name is not recognized.'; return; }
   guestName = account.name;
   document.querySelector('#accountPasswordError').textContent = '';
@@ -146,7 +150,7 @@ document.querySelector('#guestListButton').addEventListener('click', () => {
 });
 function openAdmin() {
   document.querySelector('#adminEventDate').value = state.eventDate;
-  document.querySelector('#adminItems').innerHTML = state.items.map(item => `<div class="admin-row" data-admin-id="${item.id}"><input value="${escapeHtml(item.name)}" aria-label="Dish name"><select aria-label="Category">${['Appetizers','Main Table','Sides','Desserts','Drinks'].map(c => `<option ${c === item.category ? 'selected' : ''}>${c}</option>`).join('')}</select><input type="number" min="1" max="50" value="${item.needed}" aria-label="Amount"><button type="button" aria-label="Delete">×</button></div>`).join('');
+  document.querySelector('#adminItems').innerHTML = state.items.map(item => `<div class="admin-row" data-admin-id="${escapeAttribute(item.id)}"><input value="${escapeAttribute(item.name)}" aria-label="Dish name"><select aria-label="Category">${['Appetizers','Main Table','Sides','Desserts','Drinks'].map(c => `<option ${c === item.category ? 'selected' : ''}>${c}</option>`).join('')}</select><input type="number" min="1" max="50" value="${item.needed}" aria-label="Amount"><button type="button" aria-label="Delete">×</button></div>`).join('');
   document.querySelectorAll('.admin-row').forEach(row => {
     const [name, category, amount, remove] = row.children;
     [name, category, amount].forEach(input => input.addEventListener('change', () => { const item = state.items.find(i => i.id === row.dataset.adminId); item.name = name.value.trim() || item.name; item.category = category.value; item.needed = Math.max(1, Number(amount.value)); saveState(); }));
@@ -154,6 +158,52 @@ function openAdmin() {
   });
   const dialog = document.querySelector('#adminDialog'); if (!dialog.open) dialog.showModal();
 }
+function openAccountsAdmin() {
+  document.querySelector('#adminAccountError').textContent = '';
+  document.querySelector('#adminAccounts').innerHTML = state.accounts.length ? state.accounts.map((account, index) => `<div class="account-row" data-account-index="${index}"><input value="${escapeAttribute(account.name)}" maxlength="60" aria-label="Account name"><button type="button" aria-label="Delete ${escapeAttribute(account.name)} account">×</button></div>`).join('') : '<p class="guest-empty">No guest accounts yet.</p>';
+  document.querySelectorAll('.account-row').forEach(row => {
+    const [name, remove] = row.children;
+    name.addEventListener('change', () => renameAccount(Number(row.dataset.accountIndex), name));
+    remove.addEventListener('click', () => {
+      const [removed] = state.accounts.splice(Number(row.dataset.accountIndex), 1);
+      state.items.forEach(item => { item.claims = item.claims.filter(name => name !== removed.name); });
+      state.rsvps = state.rsvps.filter(rsvp => rsvp.name !== removed.name);
+      if (guestName === removed.name) guestName = '';
+      saveState(); openAccountsAdmin(); showToast('Account removed.');
+    });
+  });
+  const dialog = document.querySelector('#accountsDialog'); if (!dialog.open) dialog.showModal();
+}
+function renameAccount(index, input) {
+  const oldName = state.accounts[index]?.name;
+  const newName = input.value.trim();
+  const duplicate = state.accounts.some((account, accountIndex) => accountIndex !== index && normalizeAccountName(account.name) === normalizeAccountName(newName));
+  if (!newName || duplicate) {
+    input.value = oldName || '';
+    document.querySelector('#adminAccountError').textContent = duplicate ? 'That account already exists.' : 'Account names cannot be empty.';
+    return;
+  }
+  state.accounts[index].name = newName;
+  state.items.forEach(item => { item.claims = item.claims.map(name => name === oldName ? newName : name); });
+  state.rsvps.forEach(rsvp => { if (rsvp.name === oldName) rsvp.name = newName; });
+  if (guestName === oldName) guestName = newName;
+  document.querySelector('#adminAccountError').textContent = '';
+  saveState(); showToast('Account updated.');
+}
+document.querySelector('#hostToolsButton').addEventListener('click', () => {
+  pendingAccountAction = null;
+  if (hostAuthenticated) document.querySelector('#hostToolsDialog').showModal();
+  else if (!document.querySelector('#passwordDialog').open) document.querySelector('#passwordDialog').showModal();
+});
+document.querySelector('#editItemsButton').addEventListener('click', () => { document.querySelector('#hostToolsDialog').close(); openAdmin(); });
+document.querySelector('#editAccountsButton').addEventListener('click', () => { document.querySelector('#hostToolsDialog').close(); openAccountsAdmin(); });
+document.querySelector('#adminAddAccountButton').addEventListener('click', () => {
+  const input = document.querySelector('#adminNewAccount');
+  const name = input.value.trim();
+  if (!name) { document.querySelector('#adminAccountError').textContent = 'Enter a last name.'; return; }
+  if (state.accounts.some(account => normalizeAccountName(account.name) === normalizeAccountName(name))) { document.querySelector('#adminAccountError').textContent = 'That account already exists.'; return; }
+  state.accounts.push({ name }); input.value = ''; saveState(); openAccountsAdmin(); showToast(`${name} account added.`);
+});
 document.querySelector('#adminEventDate').addEventListener('change', event => { if (!event.target.value) return; state.eventDate = event.target.value; saveState(); showToast('Event date updated.'); });
 document.querySelector('#adminAddButton').addEventListener('click', () => {
   const name = document.querySelector('#adminNewItem').value.trim(); if (!name) return;
