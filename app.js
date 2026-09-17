@@ -28,7 +28,7 @@ const defaultItems = [
 ];
 // Add one entry per invited household. The account name is also their sign-in name.
 const GUEST_ACCOUNTS = [
-  { name: 'Raudman' }
+  { name: 'Raudman', selected: true }
 ];
 
 let state = loadState();
@@ -37,11 +37,25 @@ let pendingAccountAction = null;
 let hostAuthenticated = false;
 let hostToolsRequested = false;
 
-function initialState() { return { items: structuredClone(defaultItems), accounts: structuredClone(GUEST_ACCOUNTS), rsvps: [], eventDate: DEFAULT_EVENT_DATE }; }
+function initialState() { return { items: structuredClone(defaultItems), accounts: structuredClone(GUEST_ACCOUNTS), rsvps: [], eventDate: DEFAULT_EVENT_DATE, accountSelectionResetFor: '' }; }
+function localDateString(date = new Date()) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+function resetAccountSelectionAfterEvent(currentState) {
+  if (currentState.eventDate >= localDateString() || currentState.accountSelectionResetFor === currentState.eventDate) return false;
+  currentState.accounts.forEach(account => { account.selected = false; });
+  currentState.accountSelectionResetFor = currentState.eventDate;
+  return true;
+}
 function loadState() {
   try {
     const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
-    return saved ? { ...saved, accounts: saved.accounts || structuredClone(GUEST_ACCOUNTS), rsvps: saved.rsvps || [], eventDate: saved.eventDate || DEFAULT_EVENT_DATE } : initialState();
+    const loaded = saved ? { ...saved, accounts: (saved.accounts || structuredClone(GUEST_ACCOUNTS)).map(account => ({ ...account, selected: account.selected !== false })), rsvps: saved.rsvps || [], eventDate: saved.eventDate || DEFAULT_EVENT_DATE, accountSelectionResetFor: saved.accountSelectionResetFor || '' } : initialState();
+    if (resetAccountSelectionAfterEvent(loaded)) localStorage.setItem(STORAGE_KEY, JSON.stringify(loaded));
+    return loaded;
   } catch { return initialState(); }
 }
 function saveState() { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); render(); }
@@ -118,6 +132,7 @@ document.querySelector('#passwordForm').addEventListener('submit', event => {
   const normalizedAccountName = normalizeAccountName(accountName);
   const account = state.accounts.find(entry => normalizeAccountName(entry.name) === normalizedAccountName);
   if (!account) { document.querySelector('#accountPasswordError').textContent = 'That last name is not recognized.'; return; }
+  if (!account.selected) { document.querySelector('#accountPasswordError').textContent = 'This account is not selected for the current event.'; return; }
   guestName = account.name;
   document.querySelector('#accountPasswordError').textContent = '';
   document.querySelector('#passwordDialog').close();
@@ -167,9 +182,14 @@ function openAdmin() {
 }
 function openAccountsAdmin() {
   document.querySelector('#adminAccountError').textContent = '';
-  document.querySelector('#adminAccounts').innerHTML = state.accounts.length ? state.accounts.map((account, index) => `<div class="account-row" data-account-index="${index}"><input value="${escapeAttribute(account.name)}" maxlength="60" aria-label="Account name"><button type="button" aria-label="Delete ${escapeAttribute(account.name)} account">×</button></div>`).join('') : '<p class="guest-empty">No guest accounts yet.</p>';
+  document.querySelector('#adminAccounts').innerHTML = state.accounts.length ? state.accounts.map((account, index) => `<div class="account-row" data-account-index="${index}"><label class="account-selection"><input type="checkbox" ${account.selected ? 'checked' : ''}><span>Selected for event</span></label><input value="${escapeAttribute(account.name)}" maxlength="60" aria-label="Account name"><button type="button" aria-label="Delete ${escapeAttribute(account.name)} account">×</button></div>`).join('') : '<p class="guest-empty">No guest accounts yet.</p>';
   document.querySelectorAll('.account-row').forEach(row => {
-    const [name, remove] = row.children;
+    const [selection, name, remove] = row.children;
+    selection.querySelector('input').addEventListener('change', event => {
+      state.accounts[Number(row.dataset.accountIndex)].selected = event.target.checked;
+      if (!event.target.checked && guestName === state.accounts[Number(row.dataset.accountIndex)].name) guestName = '';
+      saveState();
+    });
     name.addEventListener('change', () => renameAccount(Number(row.dataset.accountIndex), name));
     remove.addEventListener('click', () => {
       const [removed] = state.accounts.splice(Number(row.dataset.accountIndex), 1);
@@ -213,9 +233,9 @@ document.querySelector('#adminAddAccountButton').addEventListener('click', () =>
   const name = input.value.trim();
   if (!name) { document.querySelector('#adminAccountError').textContent = 'Enter a last name.'; return; }
   if (state.accounts.some(account => normalizeAccountName(account.name) === normalizeAccountName(name))) { document.querySelector('#adminAccountError').textContent = 'That account already exists.'; return; }
-  state.accounts.push({ name }); input.value = ''; saveState(); openAccountsAdmin(); showToast(`${name} account added.`);
+  state.accounts.push({ name, selected: false }); input.value = ''; saveState(); openAccountsAdmin(); showToast(`${name} account added. Select it to allow sign-in.`);
 });
-document.querySelector('#adminEventDate').addEventListener('change', event => { if (!event.target.value) return; state.eventDate = event.target.value; saveState(); showToast('Event date updated.'); });
+document.querySelector('#adminEventDate').addEventListener('change', event => { if (!event.target.value) return; state.eventDate = event.target.value; state.accountSelectionResetFor = ''; resetAccountSelectionAfterEvent(state); saveState(); showToast('Event date updated.'); });
 document.querySelector('#adminAddButton').addEventListener('click', () => {
   const name = document.querySelector('#adminNewItem').value.trim(); if (!name) return;
   state.items.push({ id: `host-${Date.now()}`, name, category: document.querySelector('#adminNewCategory').value, needed: Math.max(1, Number(document.querySelector('#adminNewAmount').value)), claims: [] });
@@ -224,3 +244,9 @@ document.querySelector('#adminAddButton').addEventListener('click', () => {
 
 render();
 setTimeout(() => document.querySelector('#passwordDialog').showModal(), 450);
+setInterval(() => {
+  if (!resetAccountSelectionAfterEvent(state)) return;
+  guestName = '';
+  saveState();
+  showToast('The event has passed. Account selections have been reset.');
+}, 60 * 1000);
