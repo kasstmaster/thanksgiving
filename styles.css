@@ -1,7 +1,7 @@
 :root{--navy:#132841;--navy-2:#0c1e32;--ivory:#f6f0e3;--cream:#fffcf5;--orange:#c96734;--orange-dark:#9d4726;--gold:#d6a45d;--sage:#8c9a79;--ink:#17283b;--muted:#657080;--border:#ded7ca}
 *{box-sizing:border-box}
 html{scroll-behavior:smooth}
-body{margin:0;background:var(--navy);color:#fff;font-family:"Times New Roman",Times,serif}
+body{margin:0;background:var(--navy);color:#fff;font-family:Arial,Helvetica,sans-serif}
 button,input,select{font:inherit}
 button{cursor:pointer}
 .site-header{background:var(--ivory);color:var(--navy);text-align:center;position:relative;padding:48px 24px 40px}
