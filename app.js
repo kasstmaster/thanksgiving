@@ -3,6 +3,7 @@ const HOST_PASSWORD = 'meyer'; // Change this before publishing your site.
 const HOST_DISPLAY_NAME = 'The Meyers';
 const DEFAULT_EVENT_DATE = '2026-11-28';
 const DEFAULT_CHRISTMAS_DATE = '2026-12-25';
+const CHRISTMAS_MENU_VERSION = 2;
 
 const defaultItems = [
   { id: 'ham', name: 'Ham', category: 'Main Table', needed: 1, claims: [] },
@@ -39,18 +40,35 @@ const EVENT_DETAILS = {
 };
 
 function christmasItems() {
-  const items = structuredClone(defaultItems);
-  const replacements = { turkey: 'Christmas Turkey', 'turkey-gravy': 'Gravy', stuffing: 'Christmas Stuffing', 'pumpkin-pie': 'Christmas Cookies', 'cherry-pie': 'Pecan Pie' };
-  return items.map(item => ({ ...item, name: replacements[item.id] || item.name }));
+  return [
+    { id: 'cocktail-meatballs', name: 'Cocktail Meatballs', category: 'Appetizers', needed: 1, claims: [] },
+    { id: 'jalapeno-poppers', name: 'Jalapeño Poppers', category: 'Appetizers', needed: 1, claims: [] },
+    { id: 'charcuterie-board', name: 'Charcuterie Board', category: 'Appetizers', needed: 1, claims: [] },
+    { id: 'crudite-platter', name: 'Fresh Vegetable Crudité Platter', category: 'Appetizers', needed: 1, claims: [] },
+    { id: 'shrimp-cocktail-platter', name: 'Shrimp Cocktail Platter', category: 'Appetizers', needed: 1, claims: [] },
+    { id: 'dips', name: 'Dips', category: 'Appetizers', needed: 1, claims: [] },
+    { id: 'potato-dish', name: 'Potato Dish — mashed, roasted, etc.', category: 'Sides', needed: 1, claims: [] },
+    { id: 'broccoli-salad', name: 'Broccoli Salad', category: 'Sides', needed: 1, claims: [] },
+    { id: 'black-forest-cheesecake', name: 'Black Forest Cheesecake', category: 'Desserts', needed: 1, claims: [] },
+    { id: 'cookies', name: 'Cookies', category: 'Desserts', needed: 1, claims: [] },
+    { id: 'pie', name: 'Pie', category: 'Desserts', needed: 1, claims: [] },
+    { id: 'banana-bread', name: 'Banana Bread', category: 'Desserts', needed: 1, claims: [] },
+    { id: 'water', name: 'Water', category: 'Drinks', needed: 1, claims: [] },
+    { id: 'soda', name: 'Soda', category: 'Drinks', needed: 1, claims: [] },
+    { id: 'beer', name: 'Beer', category: 'Drinks', needed: 1, claims: [] },
+    { id: 'whiskey', name: 'Whiskey', category: 'Drinks', needed: 1, claims: [] },
+    { id: 'wine', name: 'Wine', category: 'Drinks', needed: 1, claims: [] },
+    { id: 'mulled-wine', name: 'Mulled Wine', category: 'Drinks', needed: 1, claims: [] }
+  ];
 }
-function makeEvent(items, eventDate) { return { items, rsvps: [], eventDate, accountSelectionResetFor: '' }; }
+function makeEvent(items, eventDate, menuVersion) { return { items, rsvps: [], eventDate, accountSelectionResetFor: '', menuVersion }; }
 function initialAppState() {
   return {
     activeEventId: 'thanksgiving',
     accounts: structuredClone(GUEST_ACCOUNTS),
     events: {
       thanksgiving: makeEvent(structuredClone(defaultItems), DEFAULT_EVENT_DATE),
-      christmas: makeEvent(christmasItems(), DEFAULT_CHRISTMAS_DATE)
+      christmas: makeEvent(christmasItems(), DEFAULT_CHRISTMAS_DATE, CHRISTMAS_MENU_VERSION)
     }
   };
 }
@@ -69,13 +87,19 @@ function loadState() {
     if (!saved) return initialAppState();
     if (saved.events) {
       const fresh = initialAppState();
-      return {
+      const loaded = {
         ...fresh,
         ...saved,
         activeEventId: saved.events[saved.activeEventId] ? saved.activeEventId : 'thanksgiving',
         accounts: (saved.accounts || fresh.accounts).map(account => ({ ...account, selected: account.selected !== false })),
         events: { ...fresh.events, ...saved.events }
       };
+      if (loaded.events.christmas.menuVersion !== CHRISTMAS_MENU_VERSION) {
+        const previousClaims = new Map(loaded.events.christmas.items.map(item => [item.id, item.claims]));
+        loaded.events.christmas.items = christmasItems().map(item => ({ ...item, claims: previousClaims.get(item.id) || [] }));
+        loaded.events.christmas.menuVersion = CHRISTMAS_MENU_VERSION;
+      }
+      return loaded;
     }
     // Upgrade the original single-Thanksgiving data without losing RSVPs or claims.
     const upgraded = initialAppState();
