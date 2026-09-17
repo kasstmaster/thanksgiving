@@ -13,6 +13,12 @@ GitHub will provide a public link you can share with your guests.
 
 ## Save everything permanently in GitHub
 
+The app always loads `data/app-state.json` from this repository before opening
+the sign-in dialog. That checked-in file is the canonical fallback on every
+phone and computer, so accounts, RSVPs, claims, dates, and menu edits placed in
+it do not depend on browser storage. Edit and commit that JSON file whenever you
+want to manually replace the published state.
+
 GitHub Pages cannot write to its own repository, and putting a GitHub token in
 browser JavaScript would let every visitor steal it. This repository therefore
 includes a small Cloudflare Worker in `github-state-worker/`. It keeps the token
@@ -46,6 +52,11 @@ state when the page opens, regains focus, and every 30 seconds.
    edits create normal Git commits, so state is shared across devices and can be
    recovered from Git history. If there is no browser data to preserve, the
    first change starts from the defaults in `app.js`.
+
+The Worker is required for changes made *inside the website* to be committed
+automatically. Without a Worker URL, visitors can still read the same committed
+`data/app-state.json` on every device, while website edits remain local until
+you copy them into the file and commit it.
 
 If GitHub or the worker is temporarily unavailable, the change remains in that
 browser and the site shows a sync warning. Make another change after service is
