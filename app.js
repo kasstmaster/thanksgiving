@@ -177,6 +177,9 @@ function householdDisplayName(value) {
   if (/['’]$/.test(lastName)) return `The ${lastName}`;
   return `The ${lastName}${/s$/i.test(lastName) ? "'" : 's'}`;
 }
+function contributionDisplayName(value) {
+  return value.trim() === HOST_DISPLAY_NAME ? 'Host' : householdDisplayName(value);
+}
 function accountSignInNames(accountName) {
   return accountName.split('/').flatMap(household => {
     const entry = household.trim();
@@ -250,7 +253,7 @@ function renderDish(item) {
   const mine = guestName && item.claims.includes(guestName);
   const remaining = Math.max(0, item.needed - item.claims.length);
   const claimants = hostAuthenticated
-    ? `<span class="dish-claimants">${[...new Set(item.claims)].map(name => escapeHtml(householdDisplayName(name))).join(', ')}</span>`
+    ? `<span class="dish-claimants">${[...new Set(item.claims)].map(name => escapeHtml(contributionDisplayName(name))).join(', ')}</span>`
     : '';
   const status = item.optional ? 'Optional' : (remaining ? `${formatQuantity(remaining, item)} of ${formatQuantity(item.needed, item)} still needed` : '');
   const details = [status, claimants].filter(Boolean).join(' · ');
@@ -367,7 +370,7 @@ document.querySelector('#rsvpForm').addEventListener('submit', () => {
 document.querySelector('#guestListButton').addEventListener('click', () => {
   if (!hostAuthenticated) return;
   const list = document.querySelector('#guestList');
-  list.innerHTML = state.rsvps.length ? state.rsvps.map(rsvp => `<div class="guest-entry"><strong>${escapeHtml(householdDisplayName(rsvp.name))}</strong><span>${rsvp.adults} adult${rsvp.adults === 1 ? '' : 's'} · ${rsvp.children} child${rsvp.children === 1 ? '' : 'ren'}</span></div>`).join('') : '<p class="guest-empty">No guests have RSVP’d yet.</p>';
+  list.innerHTML = state.rsvps.length ? state.rsvps.map(rsvp => `<div class="guest-entry"><strong>${escapeHtml(contributionDisplayName(rsvp.name))}</strong><span>${rsvp.adults} adult${rsvp.adults === 1 ? '' : 's'} · ${rsvp.children} child${rsvp.children === 1 ? '' : 'ren'}</span></div>`).join('') : '<p class="guest-empty">No guests have RSVP’d yet.</p>';
   document.querySelector('#guestListDialog').showModal();
 });
 function openAdmin() {
