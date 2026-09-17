@@ -67,3 +67,4 @@ shared copy; browser storage is only an offline fallback.
 > static website is only a convenience—not secure authentication—because
 > visitors can view the site's source code. Protect the shared endpoint with
 > appropriate access controls if RSVP names must remain private.
+
