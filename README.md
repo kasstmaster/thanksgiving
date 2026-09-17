@@ -11,24 +11,46 @@ A warm, responsive Thanksgiving and Christmas potluck and RSVP page that can be 
 
 GitHub will provide a public link you can share with your guests.
 
-## Share sign-ups between phones and computers
+## Save everything permanently in GitHub
 
-Browser storage belongs to one device, so it cannot by itself share claims and
-RSVPs with another phone or computer. The app now supports a shared JSON state
-endpoint:
+GitHub Pages cannot write to its own repository, and putting a GitHub token in
+browser JavaScript would let every visitor steal it. This repository therefore
+includes a small Cloudflare Worker in `github-state-worker/`. It keeps the token
+secret and commits the complete account, event, menu, claim, and RSVP state to a
+JSON file in GitHub after every change. Every device reads the newest committed
+state when the page opens, regains focus, and every 30 seconds.
 
-1. Deploy an HTTPS endpoint that accepts `GET` and `PUT` at the same URL. `GET`
-   should return the saved JSON document (or `404`/`204` before the first save),
-   and `PUT` should persist the JSON request body. Allow CORS requests from the
-   GitHub Pages site.
-2. In `index.html`, set the `shared-state-url` meta tag's `content` to that URL.
-3. Reload the site once on the device containing the current sign-ups and make
-   any change. That uploads its state. Other devices load the shared state when
-   the page opens. An open page also refreshes when it regains focus and every
-   30 seconds while it remains open.
+### One-time setup
 
-If the endpoint is temporarily unavailable, changes remain saved in the local
-browser and the page displays a sync warning instead of losing the update.
+1. Create a **private** GitHub repository for the data. A private repository is
+   strongly recommended because the JSON contains guest names and RSVP details.
+2. Create a fine-grained GitHub personal access token with access only to that
+   repository and **Contents: Read and write** permission.
+3. Edit `github-state-worker/wrangler.toml`: set `GITHUB_REPOSITORY` to
+   `owner/repository`, set `ALLOWED_ORIGIN` to the exact GitHub Pages origin
+   (include a repository path only in the Pages URL, not in the origin), and
+   change the branch or state path if needed.
+4. From the repository root, run:
+
+   ```sh
+   cd github-state-worker
+   npx wrangler secret put GITHUB_TOKEN
+   npx wrangler deploy
+   ```
+
+5. Copy the deployed `workers.dev` URL into the `shared-state-url` meta tag in
+   `index.html`, commit, and publish. Do **not** add the token to
+   `wrangler.toml`, `app.js`, or any committed file.
+6. On the device that currently has the desired data, reload the published site
+   and make one change. The worker creates `data/app-state.json`; subsequent
+   edits create normal Git commits, so state is shared across devices and can be
+   recovered from Git history. If there is no browser data to preserve, the
+   first change starts from the defaults in `app.js`.
+
+If GitHub or the worker is temporarily unavailable, the change remains in that
+browser and the site shows a sync warning. Make another change after service is
+restored to commit the latest complete state. The repository remains the durable
+shared copy; browser storage is only an offline fallback.
 
 ## Customize
 
@@ -39,9 +61,9 @@ browser and the page displays a sync warning instead of losing the update.
 - Update `defaultItems` in `app.js` to change the initial menu.
 - In **Host tools → Edit menu**, add, rename, or remove quantity types such as **Dozen**, **Package**, **Tray**, or **Case**, then choose a type for each requested quantity. Guests will see and claim the quantity in the selected unit.
 
-> **Important:** When `shared-state-url` is blank, the zero-setup fallback stores
-> sign-ups only in each visitor's browser. Also note that last-name sign-in on a
+> **Important:** When `shared-state-url` is blank, sign-ups are stored only in
+> each visitor's browser and are not shared or committed to GitHub. Also note
+> that last-name sign-in on a
 > static website is only a convenience—not secure authentication—because
 > visitors can view the site's source code. Protect the shared endpoint with
 > appropriate access controls if RSVP names must remain private.
-
