@@ -13,8 +13,9 @@ GitHub will provide a public link you can share with your guests.
 
 ## Customize
 
-- Sign in with the host password and update the event date from the host dashboard.
+- Enter the host password on the welcome prompt to open the host dashboard and update the event date or menu.
 - Update `HOST_PASSWORD` near the top of `app.js` (the starter password is `gather`).
+- Add each invited household's name and unique password to `GUEST_ACCOUNTS` in `app.js`. The included example maps the password `raudman` to **The Raudman Family**.
 - Update `defaultItems` in `app.js` to change the initial menu.
 
 > **Important:** This zero-setup version stores sign-ups in each visitor's browser. That makes it ideal as a demo or for one shared tablet, but sign-ups do not synchronize between different devices. For a public multi-device event, connect the state functions in `app.js` to a hosted database such as Firebase or Supabase. Also note that a password in a static website is only a convenience—not secure authentication—because visitors can view the site's source code.

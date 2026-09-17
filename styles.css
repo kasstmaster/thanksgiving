@@ -16,3 +16,16 @@ dialog{border:0;padding:0;background:transparent;max-width:95vw}dialog::backdrop
 .admin-date{max-width:260px}.admin-date input{margin-top:7px;width:100%;border:1px solid var(--border);border-radius:4px;padding:10px;color:var(--ink)}
 @media(max-width:800px){.site-header{padding-top:62px}.sign-in-button{right:15px;top:15px}.menu-grid{grid-template-columns:1fr}.other-card{grid-template-columns:auto 1fr}.other-form{grid-column:1/3;grid-template-columns:1fr 90px}.other-form button{grid-column:1/3}.summary-strip span{display:none}}
 @media(max-width:520px){.site-header{padding:64px 16px 30px}.event-date{margin-top:16px;font-size:.82rem;letter-spacing:.08em;word-spacing:.3em}.sign-in-button{right:14px;top:14px;padding:7px 10px}.sign-in-button svg{display:none}main{padding-left:18px;padding-right:18px}.welcome{display:block;padding-top:40px}.rsvp-button{margin-top:25px}.summary-strip{padding:12px}.summary-strip>div:not(.divider){display:block;text-align:center}.summary-strip strong{display:block}.other-card{padding:24px 18px}.other-icon{display:none}.other-copy,.other-form{grid-column:1/3}.admin-row,.admin-add{grid-template-columns:1fr 70px}.admin-row select,.admin-add select{grid-row:2}.modal-card{padding:32px 24px}}
+
+/* Invitation access and category additions */
+.welcome h2{font-size:clamp(.72rem,2.85vw,2.35rem);font-weight:400;white-space:nowrap}
+.summary-item{display:flex;align-items:center;gap:12px;border:0;background:transparent;padding:0;color:inherit}
+.summary-item:hover span{text-decoration:underline}
+.category-title{display:block}
+.category-title span{display:none}
+.category-other{display:block;width:100%;border:0;background:#f3eadb;color:var(--orange-dark);padding:15px 24px;text-align:left;font-weight:700}
+.category-other:hover{background:#eadcc7}
+.guest-list{margin:5px 0 24px}
+.guest-entry{padding:14px 0;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;gap:15px}
+.guest-entry span,.guest-empty{color:var(--muted);font-size:.85rem}
+@media(max-width:520px){.summary-item{display:block;text-align:center}.welcome h2{font-size:clamp(.68rem,3.1vw,1rem)}}
