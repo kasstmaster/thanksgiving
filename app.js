@@ -2,6 +2,7 @@ const STORAGE_KEY = 'meyers-thanksgiving-v2';
 const BACKUP_STORAGE_KEY = `${STORAGE_KEY}-backup`;
 const LEGACY_STORAGE_KEYS = ['meyers-thanksgiving-v1'];
 const SHARED_STATE_URL = document.querySelector('meta[name="shared-state-url"]')?.content.trim() || '';
+const REPOSITORY_STATE_URL = document.querySelector('meta[name="repository-state-url"]')?.content.trim() || 'data/app-state.json';
 const HOST_PASSWORD = '0810'; // Change this before publishing your site.
 const HOST_DISPLAY_NAME = 'The Host';
 const DEFAULT_EVENT_DATE = '2026-11-28';
@@ -190,9 +191,10 @@ async function saveSharedState() {
   }
 }
 async function loadSharedState() {
-  if (!SHARED_STATE_URL) return;
+  const stateUrl = SHARED_STATE_URL || REPOSITORY_STATE_URL;
+  if (!stateUrl) return;
   try {
-    const response = await fetch(SHARED_STATE_URL, { cache: 'no-store' });
+    const response = await fetch(stateUrl, { cache: 'no-store' });
     if (response.status === 404 || response.status === 204) {
       if (SHARED_STATE_URL) queueSharedStateSave();
       return;
