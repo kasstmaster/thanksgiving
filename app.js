@@ -226,8 +226,10 @@ function renderDish(item) {
   const claimants = hostAuthenticated
     ? [...new Set(item.claims)].map(name => escapeHtml(householdDisplayName(name))).join(', ')
     : '';
-  const status = item.optional ? 'Optional' : (remaining ? `${remaining} of ${item.needed} still needed` : 'All set — thank you!');
-  return `<div class="dish ${remaining === 0 && !mine ? 'filled' : ''}"><h4>${escapeHtml(item.name)}</h4><div class="dish-meta">${status}${claimants ? ` · ${claimants}` : ''}</div><button data-claim="${item.id}" ${remaining === 0 && !mine ? 'disabled' : ''} class="${mine ? 'claimed' : ''}">${mine ? '✓ Bringing it' : "I'll bring this"}</button></div>`;
+  const status = item.optional ? 'Optional' : (remaining ? `${remaining} of ${item.needed} still needed` : '');
+  const details = [status, claimants].filter(Boolean).join(' · ');
+  const unavailable = remaining === 0 && !mine;
+  return `<div class="dish"><h4>${escapeHtml(item.name)}</h4>${details ? `<div class="dish-meta">${details}</div>` : ''}<button data-claim="${item.id}" ${unavailable ? 'disabled' : ''} class="${mine ? 'claimed' : ''}">${mine ? '✓ Bringing it' : (unavailable ? 'Claimed' : "I'll bring this")}</button></div>`;
 }
 function claimItem(id) {
   ensureAccount(() => {
