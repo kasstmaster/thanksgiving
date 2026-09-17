@@ -1,4 +1,5 @@
 const STORAGE_KEY = 'meyers-thanksgiving-v2';
+const SHARED_STATE_URL = document.querySelector('meta[name="shared-state-url"]')?.content.trim() || '';
 const HOST_PASSWORD = '0810'; // Change this before publishing your site.
 const HOST_DISPLAY_NAME = 'The Host';
 const DEFAULT_EVENT_DATE = '2026-11-28';
@@ -88,9 +89,8 @@ let hostAuthenticated = false;
 let hostToolsRequested = false;
 const singleColumnMenu = window.matchMedia('(max-width: 800px)');
 
-function loadState() {
+function normalizeState(saved) {
   try {
-    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
     if (!saved) return initialAppState();
     if (saved.events) {
       const fresh = initialAppState();
@@ -137,10 +137,58 @@ function loadState() {
     return upgraded;
   } catch { return initialAppState(); }
 }
+function loadState() {
+  try { return normalizeState(JSON.parse(localStorage.getItem(STORAGE_KEY))); }
+  catch { return initialAppState(); }
+}
 function saveState() {
   appState.events[appState.activeEventId] = state;
   localStorage.setItem(STORAGE_KEY, JSON.stringify(appState));
   render();
+  queueSharedStateSave();
+}
+
+let sharedSaveTimer;
+let sharedSavePending = false;
+function queueSharedStateSave() {
+  if (!SHARED_STATE_URL) return;
+  sharedSavePending = true;
+  clearTimeout(sharedSaveTimer);
+  sharedSaveTimer = setTimeout(saveSharedState, 250);
+}
+async function saveSharedState() {
+  if (!sharedSavePending) return;
+  sharedSavePending = false;
+  try {
+    const response = await fetch(SHARED_STATE_URL, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(appState)
+    });
+    if (!response.ok) throw new Error(`Shared state save failed (${response.status})`);
+  } catch (error) {
+    console.error(error);
+    showToast('This change is saved on this device, but could not sync to other devices.');
+  }
+}
+async function loadSharedState() {
+  if (!SHARED_STATE_URL) return;
+  try {
+    const response = await fetch(SHARED_STATE_URL, { cache: 'no-store' });
+    if (response.status === 404 || response.status === 204) {
+      queueSharedStateSave();
+      return;
+    }
+    if (!response.ok) throw new Error(`Shared state load failed (${response.status})`);
+    const saved = await response.json();
+    appState = normalizeState(saved);
+    state = appState.events[appState.activeEventId];
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(appState));
+    render();
+  } catch (error) {
+    console.error(error);
+    showToast('Could not refresh sign-ups. Showing the last data saved on this device.');
+  }
 }
 function escapeHtml(value) { const el = document.createElement('div'); el.textContent = value; return el.innerHTML; }
 function escapeAttribute(value) { return escapeHtml(value).replaceAll('"', '&quot;').replaceAll("'", '&#39;'); }
@@ -570,5 +618,11 @@ document.querySelector('#adminAddButton').addEventListener('click', () => {
 });
 
 render();
+loadSharedState();
 singleColumnMenu.addEventListener('change', render);
+window.addEventListener('focus', loadSharedState);
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') loadSharedState();
+});
+if (SHARED_STATE_URL) setInterval(loadSharedState, 30000);
 setTimeout(() => document.querySelector('#passwordDialog').showModal(), 450);
