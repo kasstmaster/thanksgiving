@@ -1,5 +1,5 @@
 const STORAGE_KEY = 'meyers-thanksgiving-v2';
-const HOST_PASSWORD = 'gather'; // Change this before publishing your site.
+const HOST_PASSWORD = 'meyer'; // Change this before publishing your site.
 const DEFAULT_EVENT_DATE = '2026-11-28';
 
 const defaultItems = [
@@ -100,7 +100,7 @@ function openCustomItem(category) {
 document.querySelector('#passwordForm').addEventListener('submit', event => {
   event.preventDefault();
   const accountName = document.querySelector('#accountPassword').value;
-  if (accountName === HOST_PASSWORD) {
+  if (accountName.toLocaleLowerCase() === HOST_PASSWORD.toLocaleLowerCase()) {
     hostAuthenticated = true;
     pendingAccountAction = null;
     document.querySelector('#passwordDialog').close();
