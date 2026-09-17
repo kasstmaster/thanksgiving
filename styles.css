@@ -24,6 +24,8 @@ dialog{border:0;padding:0;background:transparent;max-width:95vw}dialog::backdrop
 .welcome h2{font-size:clamp(.72rem,2.85vw,2.35rem);font-weight:400;white-space:nowrap}
 .summary-item{display:flex;align-items:center;gap:12px;border:0;background:transparent;padding:0;color:inherit}
 .summary-item:hover span{text-decoration:underline}
+.summary-item:disabled{cursor:default}
+.summary-item:disabled:hover span{text-decoration:none}
 .category-title{display:block}
 .category-title span{display:none}
 .category-other{display:block;width:100%;border:0;background:#f3eadb;color:var(--orange-dark);padding:15px 24px;text-align:left;font-weight:700}

@@ -1,5 +1,5 @@
 const STORAGE_KEY = 'meyers-thanksgiving-v2';
-const HOST_PASSWORD = 'meyer'; // Change this before publishing your site.
+const HOST_PASSWORD = '0810'; // Change this before publishing your site.
 const HOST_DISPLAY_NAME = 'The Meyers';
 const DEFAULT_EVENT_DATE = '2026-11-28';
 const DEFAULT_CHRISTMAS_DATE = '2026-12-25';
@@ -213,13 +213,19 @@ function render() {
   document.querySelector('#dishCount').textContent = claimed;
   document.querySelector('#guestCount').textContent = guests;
   document.querySelector('#remainingCount').textContent = needed;
+  const guestListButton = document.querySelector('#guestListButton');
+  guestListButton.disabled = !hostAuthenticated;
+  guestListButton.title = hostAuthenticated ? 'View guest names and RSVP details' : 'Guest details are private to the host';
+  guestListButton.setAttribute('aria-label', hostAuthenticated ? `${guests} guests attending; view private guest list` : `${guests} guests attending; details visible only to the host`);
   document.querySelectorAll('[data-claim]').forEach(button => button.addEventListener('click', () => claimItem(button.dataset.claim)));
   document.querySelectorAll('[data-custom-category]').forEach(button => button.addEventListener('click', () => openCustomItem(button.dataset.customCategory)));
 }
 function renderDish(item) {
   const mine = guestName && item.claims.includes(guestName);
   const remaining = Math.max(0, item.needed - item.claims.length);
-  const claimants = [...new Set(item.claims)].map(name => escapeHtml(householdDisplayName(name))).join(', ');
+  const claimants = hostAuthenticated
+    ? [...new Set(item.claims)].map(name => escapeHtml(householdDisplayName(name))).join(', ')
+    : '';
   const status = item.optional ? 'Optional' : (remaining ? `${remaining} of ${item.needed} still needed` : 'All set — thank you!');
   return `<div class="dish ${remaining === 0 && !mine ? 'filled' : ''}"><h4>${escapeHtml(item.name)}</h4><div class="dish-meta">${status}${claimants ? ` · ${claimants}` : ''}</div><button data-claim="${item.id}" ${remaining === 0 && !mine ? 'disabled' : ''} class="${mine ? 'claimed' : ''}">${mine ? '✓ Bringing it' : "I'll bring this"}</button></div>`;
 }
@@ -293,6 +299,7 @@ document.querySelector('#rsvpForm').addEventListener('submit', () => {
   saveState(); showToast(`RSVP saved — we can't wait to see you!`);
 });
 document.querySelector('#guestListButton').addEventListener('click', () => {
+  if (!hostAuthenticated) return;
   const list = document.querySelector('#guestList');
   list.innerHTML = state.rsvps.length ? state.rsvps.map(rsvp => `<div class="guest-entry"><strong>${escapeHtml(householdDisplayName(rsvp.name))}</strong><span>${rsvp.adults} adult${rsvp.adults === 1 ? '' : 's'} · ${rsvp.children} child${rsvp.children === 1 ? '' : 'ren'}</span></div>`).join('') : '<p class="guest-empty">No guests have RSVP’d yet.</p>';
   document.querySelector('#guestListDialog').showModal();
