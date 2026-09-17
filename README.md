@@ -13,7 +13,7 @@ GitHub will provide a public link you can share with your guests.
 
 ## Customize
 
-- Select **Host tools** and enter the host password to edit the menu, update the event date, or add, rename, and remove guest accounts.
+- Select **Settings** and enter the host password to edit the menu, update the event date, or add, rename, and remove guest accounts. After the host signs in, the button is labeled **Host tools**.
 - Update `HOST_PASSWORD` near the top of `app.js` (the starter password is `meyer`). Host password matching is case-insensitive.
 - `GUEST_ACCOUNTS` in `app.js` supplies the initial invited households. You can then manage accounts from **Host tools** without editing code. An account name is also its sign-in name; capitalization and spaces are ignored, so `Raudman`, `raudman`, and `Raud man` all match the included **Raudman** account.
 - Update `defaultItems` in `app.js` to change the initial menu.
