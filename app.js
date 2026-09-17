@@ -26,9 +26,9 @@ const defaultItems = [
   { id: 'whiskey', name: 'Whiskey', category: 'Drinks', needed: 1, claims: [] },
   { id: 'wine', name: 'Wine', category: 'Drinks', needed: 1, claims: [] }
 ];
-// Add one entry per invited household. Passwords must be unique.
+// Add one entry per invited household. The account name is also their sign-in name.
 const GUEST_ACCOUNTS = [
-  { name: 'The Raudman Family', password: 'raudman' }
+  { name: 'Raudman' }
 ];
 
 let state = loadState();
@@ -44,6 +44,7 @@ function loadState() {
 }
 function saveState() { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); render(); }
 function escapeHtml(value) { const el = document.createElement('div'); el.textContent = value; return el.innerHTML; }
+function normalizeAccountName(value) { return value.replace(/\s/g, '').toLocaleLowerCase(); }
 function showToast(message) { const toast = document.querySelector('#toast'); toast.textContent = message; toast.classList.add('show'); setTimeout(() => toast.classList.remove('show'), 2600); }
 function ensureAccount(callback) {
   if (guestName) return callback();
@@ -96,15 +97,16 @@ function openCustomItem(category) {
 
 document.querySelector('#passwordForm').addEventListener('submit', event => {
   event.preventDefault();
-  const password = document.querySelector('#accountPassword').value;
-  if (password === HOST_PASSWORD) {
+  const accountName = document.querySelector('#accountPassword').value;
+  if (accountName === HOST_PASSWORD) {
     document.querySelector('#passwordDialog').close();
     document.querySelector('#accountPasswordError').textContent = '';
     openAdmin();
     return;
   }
-  const account = GUEST_ACCOUNTS.find(entry => entry.password === password);
-  if (!account) { document.querySelector('#accountPasswordError').textContent = 'That password is not recognized.'; return; }
+  const normalizedAccountName = normalizeAccountName(accountName);
+  const account = GUEST_ACCOUNTS.find(entry => normalizeAccountName(entry.name) === normalizedAccountName);
+  if (!account) { document.querySelector('#accountPasswordError').textContent = 'That last name is not recognized.'; return; }
   guestName = account.name;
   document.querySelector('#accountPasswordError').textContent = '';
   document.querySelector('#passwordDialog').close();
