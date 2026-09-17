@@ -4,6 +4,7 @@ const HOST_DISPLAY_NAME = 'The Meyers';
 const DEFAULT_EVENT_DATE = '2026-11-28';
 const DEFAULT_CHRISTMAS_DATE = '2026-12-25';
 const CHRISTMAS_MENU_VERSION = 2;
+const ACCOUNT_RESET_VERSION = 1;
 
 const defaultItems = [
   { id: 'ham', name: 'Ham', category: 'Main Table', needed: 1, claims: [] },
@@ -30,9 +31,7 @@ const defaultItems = [
   { id: 'wine', name: 'Wine', category: 'Drinks', needed: 1, claims: [] }
 ];
 // Add one entry per invited household. The account name is also their sign-in name.
-const GUEST_ACCOUNTS = [
-  { name: 'Raudman', selected: true }
-];
+const GUEST_ACCOUNTS = [];
 
 const EVENT_DETAILS = {
   thanksgiving: { name: 'Thanksgiving', theme: 'thanksgiving', header: 'https://i.postimg.cc/JnFX8pPS/Website-Header-Thanksgiving.png' },
@@ -65,6 +64,7 @@ function makeEvent(items, eventDate, menuVersion) { return { items, rsvps: [], e
 function initialAppState() {
   return {
     activeEventId: 'thanksgiving',
+    accountResetVersion: ACCOUNT_RESET_VERSION,
     accounts: structuredClone(GUEST_ACCOUNTS),
     events: {
       thanksgiving: makeEvent(structuredClone(defaultItems), DEFAULT_EVENT_DATE),
@@ -99,13 +99,21 @@ function loadState() {
         loaded.events.christmas.items = christmasItems().map(item => ({ ...item, claims: previousClaims.get(item.id) || [] }));
         loaded.events.christmas.menuVersion = CHRISTMAS_MENU_VERSION;
       }
+      if (saved.accountResetVersion !== ACCOUNT_RESET_VERSION) {
+        loaded.accounts = [];
+        Object.values(loaded.events).forEach(eventState => {
+          eventState.items.forEach(item => { item.claims = item.claims.filter(name => name === HOST_DISPLAY_NAME); });
+          eventState.rsvps = eventState.rsvps.filter(rsvp => rsvp.name === HOST_DISPLAY_NAME);
+        });
+        loaded.accountResetVersion = ACCOUNT_RESET_VERSION;
+      }
       return loaded;
     }
-    // Upgrade the original single-Thanksgiving data without losing RSVPs or claims.
+    // Upgrade the original single-Thanksgiving data while retaining host entries.
     const upgraded = initialAppState();
-    upgraded.accounts = saved.accounts || upgraded.accounts;
     upgraded.events.thanksgiving = {
-      items: saved.items || structuredClone(defaultItems), rsvps: saved.rsvps || [],
+      items: (saved.items || structuredClone(defaultItems)).map(item => ({ ...item, claims: item.claims.filter(name => name === HOST_DISPLAY_NAME) })),
+      rsvps: (saved.rsvps || []).filter(rsvp => rsvp.name === HOST_DISPLAY_NAME),
       eventDate: saved.eventDate || DEFAULT_EVENT_DATE, accountSelectionResetFor: saved.accountSelectionResetFor || ''
     };
     return upgraded;
@@ -118,6 +126,13 @@ function saveState() {
 }
 function escapeHtml(value) { const el = document.createElement('div'); el.textContent = value; return el.innerHTML; }
 function escapeAttribute(value) { return escapeHtml(value).replaceAll('"', '&quot;').replaceAll("'", '&#39;'); }
+function amountOptions(item = {}) {
+  return `<option value="optional" ${item.optional ? 'selected' : ''}>Optional</option>${Array.from({ length: 50 }, (_, index) => {
+    const amount = index + 1;
+    return `<option value="${amount}" ${!item.optional && item.needed === amount ? 'selected' : ''}>${amount}</option>`;
+  }).join('')}`;
+}
+document.querySelector('#adminNewAmount').innerHTML = amountOptions({ needed: 1 });
 function normalizeAccountName(value) {
   return value
     .trim()
@@ -173,7 +188,7 @@ function render() {
     .map(column => `<div class="menu-column">${column.join('')}</div>`)
     .join('');
   const claimed = state.items.reduce((sum, item) => sum + item.claims.length, 0);
-  const needed = state.items.reduce((sum, item) => sum + Math.max(0, item.needed - item.claims.length), 0);
+  const needed = state.items.reduce((sum, item) => sum + (item.optional ? 0 : Math.max(0, item.needed - item.claims.length)), 0);
   const guests = state.rsvps.reduce((sum, rsvp) => sum + rsvp.adults + rsvp.children, 0);
   document.querySelector('#dishCount').textContent = claimed;
   document.querySelector('#guestCount').textContent = guests;
@@ -185,7 +200,8 @@ function renderDish(item) {
   const mine = guestName && item.claims.includes(guestName);
   const remaining = Math.max(0, item.needed - item.claims.length);
   const claimants = [...new Set(item.claims)].map(escapeHtml).join(', ');
-  return `<div class="dish ${remaining === 0 && !mine ? 'filled' : ''}"><h4>${escapeHtml(item.name)}</h4><div class="dish-meta">${remaining ? `${remaining} of ${item.needed} still needed` : 'All set — thank you!'}${claimants ? ` · ${claimants}` : ''}</div><button data-claim="${item.id}" ${remaining === 0 && !mine ? 'disabled' : ''} class="${mine ? 'claimed' : ''}">${mine ? '✓ Bringing it' : "I'll bring this"}</button></div>`;
+  const status = item.optional ? 'Optional' : (remaining ? `${remaining} of ${item.needed} still needed` : 'All set — thank you!');
+  return `<div class="dish ${remaining === 0 && !mine ? 'filled' : ''}"><h4>${escapeHtml(item.name)}</h4><div class="dish-meta">${status}${claimants ? ` · ${claimants}` : ''}</div><button data-claim="${item.id}" ${remaining === 0 && !mine ? 'disabled' : ''} class="${mine ? 'claimed' : ''}">${mine ? '✓ Bringing it' : "I'll bring this"}</button></div>`;
 }
 function claimItem(id) {
   ensureAccount(() => {
@@ -263,10 +279,10 @@ document.querySelector('#guestListButton').addEventListener('click', () => {
 });
 function openAdmin() {
   document.querySelector('#adminEventDate').value = state.eventDate;
-  document.querySelector('#adminItems').innerHTML = state.items.map(item => `<div class="admin-row" data-admin-id="${escapeAttribute(item.id)}"><input value="${escapeAttribute(item.name)}" aria-label="Dish name"><select aria-label="Category">${['Appetizers','Main Table','Sides','Desserts','Drinks'].map(c => `<option ${c === item.category ? 'selected' : ''}>${c}</option>`).join('')}</select><input type="number" min="1" max="50" value="${item.needed}" aria-label="Amount"><button type="button" aria-label="Delete">×</button></div>`).join('');
+  document.querySelector('#adminItems').innerHTML = state.items.map(item => `<div class="admin-row" data-admin-id="${escapeAttribute(item.id)}"><input value="${escapeAttribute(item.name)}" aria-label="Dish name"><select aria-label="Category">${['Appetizers','Main Table','Sides','Desserts','Drinks'].map(c => `<option ${c === item.category ? 'selected' : ''}>${c}</option>`).join('')}</select><select aria-label="Amount needed">${amountOptions(item)}</select><button type="button" aria-label="Delete">×</button></div>`).join('');
   document.querySelectorAll('.admin-row').forEach(row => {
     const [name, category, amount, remove] = row.children;
-    [name, category, amount].forEach(input => input.addEventListener('change', () => { const item = state.items.find(i => i.id === row.dataset.adminId); item.name = name.value.trim() || item.name; item.category = category.value; item.needed = Math.max(1, Number(amount.value)); saveState(); }));
+    [name, category, amount].forEach(input => input.addEventListener('change', () => { const item = state.items.find(i => i.id === row.dataset.adminId); item.name = name.value.trim() || item.name; item.category = category.value; item.optional = amount.value === 'optional'; if (!item.optional) item.needed = Number(amount.value); saveState(); }));
     remove.addEventListener('click', () => { state.items = state.items.filter(i => i.id !== row.dataset.adminId); saveState(); openAdmin(); });
   });
   const dialog = document.querySelector('#adminDialog'); if (!dialog.open) dialog.showModal();
@@ -353,7 +369,8 @@ document.querySelector('#adminAddAccountButton').addEventListener('click', () =>
 document.querySelector('#adminEventDate').addEventListener('change', event => { if (!event.target.value) return; state.eventDate = event.target.value; state.accountSelectionResetFor = ''; saveState(); showToast('Event date updated.'); });
 document.querySelector('#adminAddButton').addEventListener('click', () => {
   const name = document.querySelector('#adminNewItem').value.trim(); if (!name) return;
-  state.items.push({ id: `host-${Date.now()}`, name, category: document.querySelector('#adminNewCategory').value, needed: Math.max(1, Number(document.querySelector('#adminNewAmount').value)), claims: [] });
+  const amount = document.querySelector('#adminNewAmount').value;
+  state.items.push({ id: `host-${Date.now()}`, name, category: document.querySelector('#adminNewCategory').value, needed: amount === 'optional' ? 1 : Number(amount), optional: amount === 'optional', claims: [] });
   document.querySelector('#adminNewItem').value = ''; saveState(); openAdmin();
 });
 

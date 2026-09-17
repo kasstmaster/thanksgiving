@@ -104,7 +104,10 @@
         <div class="admin-add">
           <input id="adminNewItem" placeholder="New item" maxlength="60" />
           <select id="adminNewCategory"><option>Appetizers</option><option>Main Table</option><option>Sides</option><option>Desserts</option><option>Drinks</option></select>
-          <input id="adminNewAmount" type="number" min="1" max="50" value="1" aria-label="Amount needed" />
+          <select id="adminNewAmount" aria-label="Amount needed">
+            <option value="optional">Optional</option>
+            <option value="1" selected>1</option>
+          </select>
           <button id="adminAddButton" type="button">Add</button>
         </div>
         <button class="primary-button" value="default">Done editing</button>
