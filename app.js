@@ -5,6 +5,10 @@ const DEFAULT_EVENT_DATE = '2026-11-28';
 const DEFAULT_CHRISTMAS_DATE = '2026-12-25';
 const CHRISTMAS_MENU_VERSION = 2;
 const ACCOUNT_RESET_VERSION = 1;
+const DEFAULT_QUANTITY_UNITS = [
+  { id: 'item', label: 'Item', locked: true },
+  { id: 'dozen', label: 'Dozen' }
+];
 
 const defaultItems = [
   { id: 'ham', name: 'Ham', category: 'Main Table', needed: 1, claims: [] },
@@ -60,7 +64,7 @@ function christmasItems() {
     { id: 'mulled-wine', name: 'Mulled Wine', category: 'Drinks', needed: 1, claims: [] }
   ];
 }
-function makeEvent(items, eventDate, menuVersion) { return { items, rsvps: [], eventDate, accountSelectionResetFor: '', menuVersion }; }
+function makeEvent(items, eventDate, menuVersion) { return { items, rsvps: [], eventDate, accountSelectionResetFor: '', menuVersion, quantityUnits: structuredClone(DEFAULT_QUANTITY_UNITS) }; }
 function initialAppState() {
   return {
     activeEventId: 'thanksgiving',
@@ -108,6 +112,9 @@ function loadState() {
         });
         loaded.accountResetVersion = ACCOUNT_RESET_VERSION;
       }
+      Object.values(loaded.events).forEach(eventState => {
+        eventState.quantityUnits = eventState.quantityUnits?.length ? eventState.quantityUnits : structuredClone(DEFAULT_QUANTITY_UNITS);
+      });
       return loaded;
     }
     // Upgrade the original single-Thanksgiving data while retaining host entries.
@@ -115,7 +122,8 @@ function loadState() {
     upgraded.events.thanksgiving = {
       items: (saved.items || structuredClone(defaultItems)).map(item => ({ ...item, claims: item.claims.filter(name => name === HOST_DISPLAY_NAME) })),
       rsvps: (saved.rsvps || []).filter(rsvp => rsvp.name === HOST_DISPLAY_NAME),
-      eventDate: saved.eventDate || DEFAULT_EVENT_DATE, accountSelectionResetFor: saved.accountSelectionResetFor || ''
+      eventDate: saved.eventDate || DEFAULT_EVENT_DATE, accountSelectionResetFor: saved.accountSelectionResetFor || '',
+      quantityUnits: structuredClone(DEFAULT_QUANTITY_UNITS)
     };
     return upgraded;
   } catch { return initialAppState(); }
@@ -132,6 +140,23 @@ function amountOptions(item = {}) {
     const amount = index + 1;
     return `<option value="${amount}" ${!item.optional && item.needed === amount ? 'selected' : ''}>${amount}</option>`;
   }).join('')}`;
+}
+function unitOptions(item = {}) {
+  const selectedUnit = state.quantityUnits.some(unit => unit.id === item.unit) ? item.unit : 'item';
+  return state.quantityUnits.map(unit => `<option value="${escapeAttribute(unit.id)}" ${unit.id === selectedUnit ? 'selected' : ''}>${escapeHtml(unit.label)}${unit.id === 'item' ? '(s)' : ''}</option>`).join('');
+}
+function formatQuantity(quantity, item = {}) {
+  if (!item.unit || item.unit === 'item') return String(quantity);
+  const unit = state.quantityUnits.find(entry => entry.id === item.unit);
+  if (!unit) return String(quantity);
+  const label = unit.label.toLocaleLowerCase();
+  let plural = label;
+  if (quantity !== 1 && label !== 'dozen') {
+    if (/[^aeiou]y$/i.test(label)) plural = `${label.slice(0, -1)}ies`;
+    else if (/(s|x|z|ch|sh)$/i.test(label)) plural = `${label}es`;
+    else plural = `${label}s`;
+  }
+  return `${quantity} ${plural}`;
 }
 document.querySelector('#adminNewAmount').innerHTML = amountOptions({ needed: 1 });
 function normalizeAccountName(value) {
@@ -227,7 +252,7 @@ function renderDish(item) {
   const claimants = hostAuthenticated
     ? `<span class="dish-claimants">${[...new Set(item.claims)].map(name => escapeHtml(householdDisplayName(name))).join(', ')}</span>`
     : '';
-  const status = item.optional ? 'Optional' : (remaining ? `${remaining} of ${item.needed} still needed` : '');
+  const status = item.optional ? 'Optional' : (remaining ? `${formatQuantity(remaining, item)} of ${formatQuantity(item.needed, item)} still needed` : '');
   const details = [status, claimants].filter(Boolean).join(' · ');
   const unavailable = remaining === 0 && !mine;
   return `<div class="dish"><h4>${escapeHtml(item.name)}</h4>${details ? `<div class="dish-meta">${details}</div>` : ''}<button data-claim="${item.id}" ${unavailable ? 'disabled' : ''} class="${mine ? 'claimed' : ''}">${mine ? '✓ Bringing it' : (unavailable ? 'Claimed' : "I'll bring this")}</button></div>`;
@@ -245,22 +270,23 @@ function claimItem(id) {
     if (remaining < 1) return;
     if (item.needed > 1) {
       pendingClaimItemId = item.id;
-      document.querySelector('#claimQuantityDescription').textContent = `${remaining} of ${item.needed} ${item.name} still needed.`;
+      document.querySelector('#claimQuantityDescription').textContent = `${formatQuantity(remaining, item)} of ${formatQuantity(item.needed, item)} ${item.name} still needed.`;
       document.querySelector('#claimQuantity').innerHTML = Array.from({ length: remaining }, (_, index) => {
         const quantity = index + 1;
-        return `<option value="${quantity}">${quantity}</option>`;
+        return `<option value="${quantity}">${formatQuantity(quantity, item)}</option>`;
       }).join('');
       document.querySelector('#claimQuantityDialog').showModal();
       return;
     }
     item.claims.push(guestName);
     saveState();
-    showToast(`Thanks, ${householdDisplayName(guestName)}! You're bringing ${item.name}.`);
+    showToast(`Thanks, ${householdDisplayName(guestName)}! You're bringing ${item.unit === 'dozen' ? `a dozen of ${item.name}` : item.name}.`);
   });
 }
 function openCustomItem(category) {
   ensureAccount(() => {
     document.querySelector('#customItemCategory').value = category;
+    document.querySelector('#customItemUnit').innerHTML = unitOptions();
     document.querySelector('#customItemDialog').showModal();
   });
 }
@@ -297,9 +323,10 @@ document.querySelector('#customItemForm').addEventListener('submit', event => {
   event.preventDefault();
   const name = document.querySelector('#customItemName').value.trim();
   const quantity = Number(document.querySelector('#customItemQuantity').value);
+  const unit = document.querySelector('#customItemUnit').value;
   const category = document.querySelector('#customItemCategory').value;
   if (!name || !category || quantity < 1) return;
-  state.items.push({ id: `custom-${Date.now()}`, name, category, needed: quantity, claims: Array(quantity).fill(guestName) });
+  state.items.push({ id: `custom-${Date.now()}`, name, category, needed: quantity, unit, claims: Array(quantity).fill(guestName) });
   event.target.reset(); document.querySelector('#customItemQuantity').value = 1;
   document.querySelector('#customItemDialog').close(); saveState(); showToast(`${name} was added to ${category}!`);
 });
@@ -318,7 +345,7 @@ document.querySelector('#claimQuantityForm').addEventListener('submit', event =>
   pendingClaimItemId = null;
   document.querySelector('#claimQuantityDialog').close();
   saveState();
-  showToast(`Thanks, ${householdDisplayName(guestName)}! You're bringing ${quantity} ${item.name}.`);
+  showToast(`Thanks, ${householdDisplayName(guestName)}! You're bringing ${formatQuantity(quantity, item)} of ${item.name}.`);
 });
 document.querySelector('#claimQuantityDialog').addEventListener('close', () => { pendingClaimItemId = null; });
 document.querySelector('#rsvpButton').addEventListener('click', () => ensureAccount(() => {
@@ -345,13 +372,40 @@ document.querySelector('#guestListButton').addEventListener('click', () => {
 });
 function openAdmin() {
   document.querySelector('#adminEventDate').value = state.eventDate;
-  document.querySelector('#adminItems').innerHTML = state.items.map(item => `<div class="admin-row" data-admin-id="${escapeAttribute(item.id)}"><input value="${escapeAttribute(item.name)}" aria-label="Dish name"><select aria-label="Category">${['Appetizers','Main Table','Sides','Desserts','Drinks'].map(c => `<option ${c === item.category ? 'selected' : ''}>${c}</option>`).join('')}</select><select aria-label="Amount needed">${amountOptions(item)}</select><button type="button" aria-label="Delete">×</button></div>`).join('');
+  document.querySelector('#adminNewUnit').innerHTML = unitOptions();
+  renderQuantityUnits();
+  document.querySelector('#adminItems').innerHTML = state.items.map(item => `<div class="admin-row" data-admin-id="${escapeAttribute(item.id)}"><input value="${escapeAttribute(item.name)}" aria-label="Dish name"><select aria-label="Category">${['Appetizers','Main Table','Sides','Desserts','Drinks'].map(c => `<option ${c === item.category ? 'selected' : ''}>${c}</option>`).join('')}</select><select aria-label="Amount needed">${amountOptions(item)}</select><select aria-label="Quantity type">${unitOptions(item)}</select><button type="button" aria-label="Delete">×</button></div>`).join('');
   document.querySelectorAll('.admin-row').forEach(row => {
-    const [name, category, amount, remove] = row.children;
-    [name, category, amount].forEach(input => input.addEventListener('change', () => { const item = state.items.find(i => i.id === row.dataset.adminId); item.name = name.value.trim() || item.name; item.category = category.value; item.optional = amount.value === 'optional'; if (!item.optional) item.needed = Number(amount.value); saveState(); }));
+    const [name, category, amount, unit, remove] = row.children;
+    [name, category, amount, unit].forEach(input => input.addEventListener('change', () => { const item = state.items.find(i => i.id === row.dataset.adminId); item.name = name.value.trim() || item.name; item.category = category.value; item.optional = amount.value === 'optional'; item.unit = unit.value; if (!item.optional) item.needed = Number(amount.value); saveState(); }));
     remove.addEventListener('click', () => { state.items = state.items.filter(i => i.id !== row.dataset.adminId); saveState(); openAdmin(); });
   });
   const dialog = document.querySelector('#adminDialog'); if (!dialog.open) dialog.showModal();
+}
+function renderQuantityUnits() {
+  document.querySelector('#adminUnitError').textContent = '';
+  document.querySelector('#adminUnits').innerHTML = state.quantityUnits.map(unit => `<div class="admin-unit-row" data-unit-id="${escapeAttribute(unit.id)}"><input value="${escapeAttribute(unit.label)}" maxlength="30" aria-label="Quantity type name" ${unit.locked ? 'disabled' : ''}><button type="button" ${unit.locked ? 'disabled' : ''} aria-label="Remove ${escapeAttribute(unit.label)} quantity type">Remove</button></div>`).join('');
+  document.querySelectorAll('.admin-unit-row').forEach(row => {
+    const [name, remove] = row.children;
+    name.addEventListener('change', () => {
+      const unit = state.quantityUnits.find(entry => entry.id === row.dataset.unitId);
+      const label = name.value.trim();
+      const duplicate = state.quantityUnits.some(entry => entry.id !== unit.id && entry.label.toLocaleLowerCase() === label.toLocaleLowerCase());
+      if (!label || duplicate) {
+        name.value = unit.label;
+        document.querySelector('#adminUnitError').textContent = duplicate ? 'That quantity type already exists.' : 'Quantity type names cannot be empty.';
+        return;
+      }
+      unit.label = label;
+      saveState(); openAdmin();
+    });
+    remove.addEventListener('click', () => {
+      if (state.quantityUnits.find(unit => unit.id === row.dataset.unitId)?.locked) return;
+      state.quantityUnits = state.quantityUnits.filter(unit => unit.id !== row.dataset.unitId);
+      state.items.forEach(item => { if (item.unit === row.dataset.unitId) item.unit = 'item'; });
+      saveState(); openAdmin();
+    });
+  });
 }
 function openAccountsAdmin() {
   document.querySelector('#adminAccountError').textContent = '';
@@ -433,10 +487,19 @@ document.querySelector('#adminAddAccountButton').addEventListener('click', () =>
   appState.accounts.push({ name, selected: false }); input.value = ''; saveState(); openAccountsAdmin(); showToast(`${householdDisplayName(name)} account added. Enable it to allow sign-in.`);
 });
 document.querySelector('#adminEventDate').addEventListener('change', event => { if (!event.target.value) return; state.eventDate = event.target.value; state.accountSelectionResetFor = ''; saveState(); showToast('Event date updated.'); });
+document.querySelector('#adminAddUnitButton').addEventListener('click', () => {
+  const input = document.querySelector('#adminNewUnitName');
+  const label = input.value.trim();
+  if (!label) { document.querySelector('#adminUnitError').textContent = 'Enter a quantity type name.'; return; }
+  if (state.quantityUnits.some(unit => unit.label.toLocaleLowerCase() === label.toLocaleLowerCase())) { document.querySelector('#adminUnitError').textContent = 'That quantity type already exists.'; return; }
+  state.quantityUnits.push({ id: `unit-${Date.now()}`, label });
+  input.value = ''; saveState(); openAdmin();
+});
 document.querySelector('#adminAddButton').addEventListener('click', () => {
   const name = document.querySelector('#adminNewItem').value.trim(); if (!name) return;
   const amount = document.querySelector('#adminNewAmount').value;
-  state.items.push({ id: `host-${Date.now()}`, name, category: document.querySelector('#adminNewCategory').value, needed: amount === 'optional' ? 1 : Number(amount), optional: amount === 'optional', claims: [] });
+  const unit = document.querySelector('#adminNewUnit').value;
+  state.items.push({ id: `host-${Date.now()}`, name, category: document.querySelector('#adminNewCategory').value, needed: amount === 'optional' ? 1 : Number(amount), optional: amount === 'optional', unit, claims: [] });
   document.querySelector('#adminNewItem').value = ''; saveState(); openAdmin();
 });
 
