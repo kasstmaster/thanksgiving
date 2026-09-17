@@ -28,9 +28,9 @@
       </section>
 
       <section class="summary-strip" aria-label="Event summary">
-        <div><strong id="dishCount">0</strong><span>Dishes claimed</span></div>
-        <div class="divider"></div>
         <button class="summary-item" id="guestListButton" type="button"><strong id="guestCount">0</strong><span>Guests attending</span></button>
+        <div class="divider"></div>
+        <div><strong id="dishCount">0</strong><span>Dishes claimed</span></div>
         <div class="divider"></div>
         <div><strong id="remainingCount">0</strong><span>Still needed</span></div>
       </section>
@@ -90,6 +90,7 @@
         <input id="customItemCategory" type="hidden" />
         <label><span>Your item</span><input id="customItemName" required maxlength="60" placeholder="e.g. Grandma's pecan pie" /></label>
         <label><span>How many are you bringing?</span><input id="customItemQuantity" required type="number" min="1" max="50" value="1" /></label>
+        <label><span>Quantity type</span><select id="customItemUnit"><option value="item">Individual item(s)</option><option value="dozen">Dozen(s)</option></select></label>
         <button class="primary-button" value="default">Add my item</button>
       </form>
     </dialog>
@@ -111,6 +112,13 @@
         <p class="section-kicker">Host dashboard</p><h2>Edit the menu</h2>
         <p>Change the event date, requested amounts, dish names, or add something new.</p>
         <label class="admin-date"><span>Event date</span><input id="adminEventDate" type="date" required /></label>
+        <section class="admin-units" aria-labelledby="quantityUnitsHeading">
+          <h3 id="quantityUnitsHeading">Quantity types</h3>
+          <p>Add labels such as dozen, package, tray, or case.</p>
+          <div id="adminUnits"></div>
+          <div class="admin-unit-add"><input id="adminNewUnitName" maxlength="30" placeholder="New type, e.g. Package" /><button id="adminAddUnitButton" type="button">Add type</button></div>
+          <p class="form-error" id="adminUnitError" role="alert"></p>
+        </section>
         <div id="adminItems" class="admin-items"></div>
         <div class="admin-add">
           <input id="adminNewItem" placeholder="New item" maxlength="60" />
@@ -119,6 +127,7 @@
             <option value="optional">Optional</option>
             <option value="1" selected>1</option>
           </select>
+          <select id="adminNewUnit" aria-label="Quantity type"><option value="item">Item(s)</option><option value="dozen">Dozen(s)</option></select>
           <button id="adminAddButton" type="button">Add</button>
         </div>
         <button class="primary-button" value="default">Done editing</button>
