@@ -90,6 +90,7 @@ let pendingAccountAction = null;
 let pendingClaimItemId = null;
 let hostAuthenticated = false;
 let hostToolsRequested = false;
+let localStateRevision = 0;
 const singleColumnMenu = window.matchMedia('(max-width: 800px)');
 
 function normalizeState(saved) {
@@ -163,12 +164,14 @@ function storeLocalState(nextState) {
 function saveState() {
   appState.events[appState.activeEventId] = state;
   storeLocalState(appState);
+  localStateRevision += 1;
   render();
   queueSharedStateSave();
 }
 
 let sharedSaveTimer;
 let sharedSavePending = false;
+let sharedSaveInProgress = false;
 function queueSharedStateSave() {
   if (!SHARED_STATE_URL) return;
   sharedSavePending = true;
@@ -178,6 +181,8 @@ function queueSharedStateSave() {
 async function saveSharedState() {
   if (!sharedSavePending) return;
   sharedSavePending = false;
+  sharedSaveInProgress = true;
+  let saveFailed = false;
   try {
     const response = await fetch(SHARED_STATE_URL, {
       method: 'PUT',
@@ -187,12 +192,25 @@ async function saveSharedState() {
     if (!response.ok) throw new Error(`Shared state save failed (${response.status})`);
   } catch (error) {
     console.error(error);
+    saveFailed = true;
+    sharedSavePending = true;
     showToast('This change is saved on this device, but could not sync to other devices.');
+  } finally {
+    sharedSaveInProgress = false;
+    // A change may have been made while the previous request was running.
+    if (sharedSavePending && !saveFailed) {
+      clearTimeout(sharedSaveTimer);
+      sharedSaveTimer = setTimeout(saveSharedState, 250);
+    }
   }
 }
 async function loadSharedState() {
   const stateUrl = SHARED_STATE_URL || REPOSITORY_STATE_URL;
   if (!stateUrl) return;
+  // Never replace a local edit with a stale response while that edit is
+  // waiting to be uploaded.
+  if (sharedSavePending || sharedSaveInProgress) return;
+  const revisionBeforeLoad = localStateRevision;
   try {
     const response = await fetch(stateUrl, { cache: 'no-store' });
     if (response.status === 404 || response.status === 204) {
@@ -200,8 +218,14 @@ async function loadSharedState() {
       return;
     }
     if (!response.ok) throw new Error(`Shared state load failed (${response.status})`);
-    const saved = await response.json();
-    appState = normalizeState(saved);
+    const saved = normalizeState(await response.json());
+    if (localStateRevision !== revisionBeforeLoad || sharedSavePending || sharedSaveInProgress) return;
+    // The checked-in repository file is read-only when no Worker is set up.
+    // Use it to seed a browser, but do not let an older/emptier copy erase a
+    // richer local state (most visibly, newly added accounts) on refresh or
+    // when the window regains focus.
+    if (!SHARED_STATE_URL && stateRecoveryScore(appState) > stateRecoveryScore(saved)) return;
+    appState = saved;
     state = appState.events[appState.activeEventId];
     storeLocalState(appState);
     render();
