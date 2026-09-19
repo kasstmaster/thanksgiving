@@ -89,6 +89,7 @@ let guestName = '';
 let pendingAccountAction = null;
 let pendingClaimItemId = null;
 let hostAuthenticated = false;
+let hostCredential = '';
 let hostToolsRequested = false;
 let localStateRevision = 0;
 const singleColumnMenu = window.matchMedia('(max-width: 800px)');
@@ -432,6 +433,7 @@ document.querySelector('#passwordForm').addEventListener('submit', event => {
   const accountName = document.querySelector('#accountPassword').value;
   if (normalizeAccountName(accountName) === normalizeAccountName(HOST_PASSWORD)) {
     hostAuthenticated = true;
+    hostCredential = accountName;
     guestName = HOST_DISPLAY_NAME;
     updateHostToolsButton();
     const action = pendingAccountAction;
@@ -642,6 +644,63 @@ document.querySelector('#manageEventsButton').addEventListener('click', () => { 
 document.querySelector('#editItemsButton').addEventListener('click', () => { document.querySelector('#hostToolsDialog').close(); openAdmin(); });
 document.querySelector('#clearClaimButton').addEventListener('click', () => { document.querySelector('#hostToolsDialog').close(); openClearClaimDialog(); });
 document.querySelector('#editAccountsButton').addEventListener('click', () => { document.querySelector('#hostToolsDialog').close(); openAccountsAdmin(); });
+const wait = milliseconds => new Promise(resolve => setTimeout(resolve, milliseconds));
+function anyListSyncErrorMessage(status, errorCode) {
+  if (status === 401 || errorCode === 'host_authentication_failed') return 'Unable to sync: the Worker host password secret does not match the website host password.';
+  if (status === 405) return 'Unable to sync: the updated Cloudflare Worker has not been deployed yet.';
+  if (errorCode === 'workflow_dispatch_failed') return 'Unable to sync: GitHub could not start the workflow. Check the Worker GitHub token and workflow branch.';
+  if (errorCode === 'status_read_failed') return 'Unable to sync: the Worker could not read the result from the shared data repository.';
+  return 'Unable to sync AnyList Address Book. Existing accounts were not changed.';
+}
+document.querySelector('#syncAnyListButton').addEventListener('click', async event => {
+  if (!hostAuthenticated || !SHARED_STATE_URL) return;
+  const button = event.currentTarget;
+  const result = document.querySelector('#anyListSyncResult');
+  button.disabled = true;
+  button.textContent = 'Syncing…';
+  result.textContent = 'Syncing…';
+  try {
+    const headers = { 'X-Host-Password': hostCredential };
+    const started = await fetch(`${SHARED_STATE_URL.replace(/\/$/, '')}/anylist-sync`, { method: 'POST', headers });
+    if (!started.ok) {
+      const details = await started.json().catch(() => ({}));
+      const error = new Error(`Sync start failed (${started.status})`);
+      error.displayMessage = anyListSyncErrorMessage(started.status, details.error);
+      throw error;
+    }
+    const { syncId } = await started.json();
+    let outcome;
+    for (let attempt = 0; attempt < 120; attempt += 1) {
+      await wait(5000);
+      const status = await fetch(`${SHARED_STATE_URL.replace(/\/$/, '')}/anylist-sync/status?id=${encodeURIComponent(syncId)}`, { headers, cache: 'no-store' });
+      if (!status.ok) {
+        const details = await status.json().catch(() => ({}));
+        const error = new Error(`Sync status failed (${status.status})`);
+        error.displayMessage = anyListSyncErrorMessage(status.status, details.error);
+        throw error;
+      }
+      outcome = await status.json();
+      if (outcome.state !== 'running') break;
+    }
+    if (!outcome || outcome.state !== 'complete') {
+      const error = new Error('AnyList sync failed or timed out.');
+      error.displayMessage = outcome?.state === 'failed'
+        ? 'Unable to sync: the GitHub Actions job failed. Open the latest “Sync AnyList Address Book” run for details.'
+        : 'Unable to sync: the GitHub Actions job did not finish within 10 minutes.';
+      throw error;
+    }
+    await loadSharedState();
+    const added = outcome.added ? `${outcome.added} new account${outcome.added === 1 ? '' : 's'} added` : 'no new accounts found';
+    const skipped = outcome.skipped ? `, ${outcome.skipped} entr${outcome.skipped === 1 ? 'y' : 'ies'} skipped` : '';
+    result.textContent = `Sync complete — ${added}${skipped}.`;
+  } catch (error) {
+    console.error(error);
+    result.textContent = error.displayMessage || 'Unable to sync AnyList Address Book. Existing accounts were not changed.';
+  } finally {
+    button.disabled = false;
+    button.textContent = 'Sync AnyList Address Book';
+  }
+});
 document.querySelector('#clearClaimItem').addEventListener('change', updateClearClaimFamilies);
 document.querySelector('#clearClaimFamily').addEventListener('change', updateClearClaimQuantities);
 document.querySelector('#clearClaimForm').addEventListener('submit', event => {

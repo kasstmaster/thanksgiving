@@ -5,8 +5,8 @@ function corsHeaders(request, env) {
   const allowedOrigin = env.ALLOWED_ORIGIN || '*';
   return {
     'Access-Control-Allow-Origin': allowedOrigin === '*' ? '*' : (origin === allowedOrigin ? origin : allowedOrigin),
-    'Access-Control-Allow-Methods': 'GET, PUT, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Allow-Methods': 'GET, PUT, POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, X-Host-Password',
     'Access-Control-Max-Age': '86400',
     'Vary': 'Origin'
   };
@@ -14,6 +14,10 @@ function corsHeaders(request, env) {
 
 function response(request, env, body, status = 200, headers = {}) {
   return new Response(body, { status, headers: { ...corsHeaders(request, env), ...headers } });
+}
+
+function jsonResponse(request, env, value, status = 200) {
+  return response(request, env, JSON.stringify(value), status, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
 }
 
 function githubHeaders(env) {
@@ -33,6 +37,41 @@ function repositoryConfig(env) {
   const path = (env.GITHUB_STATE_PATH || 'data/app-state.json').split('/').map(encodeURIComponent).join('/');
   const branch = env.GITHUB_BRANCH || 'main';
   return { url: `${GITHUB_API}/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repository)}/contents/${path}`, branch };
+}
+
+function safeEqual(left, right) {
+  const a = new TextEncoder().encode(left || '');
+  const b = new TextEncoder().encode(right || '');
+  let difference = a.length ^ b.length;
+  for (let index = 0; index < Math.max(a.length, b.length); index += 1) difference |= (a[index] || 0) ^ (b[index] || 0);
+  return difference === 0;
+}
+
+function requireHost(request, env) {
+  return env.HOST_PASSWORD && safeEqual((request.headers.get('X-Host-Password') || '').toLowerCase(), env.HOST_PASSWORD.toLowerCase());
+}
+
+async function dispatchAnyListSync(env, syncId) {
+  const [owner, repository] = (env.GITHUB_WORKFLOW_REPOSITORY || '').split('/');
+  if (!owner || !repository) throw new Error('GITHUB_WORKFLOW_REPOSITORY must be configured.');
+  const result = await fetch(`${GITHUB_API}/repos/${owner}/${repository}/actions/workflows/sync-anylist.yml/dispatches`, {
+    method: 'POST', headers: { ...githubHeaders(env), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ref: env.GITHUB_WORKFLOW_BRANCH || 'main', inputs: { sync_id: syncId } })
+  });
+  if (!result.ok) return { status: 502, error: `GitHub workflow dispatch failed (${result.status}).` };
+  return { status: 202 };
+}
+
+async function readSyncStatus(env, syncId) {
+  if (!/^[a-f0-9-]{36}$/.test(syncId)) return { status: 400, error: 'Invalid sync ID.' };
+  const config = repositoryConfig(env);
+  const path = `.anylist-sync/${syncId}.json`.split('/').map(encodeURIComponent).join('/');
+  const url = config.url.replace((env.GITHUB_STATE_PATH || 'data/app-state.json').split('/').map(encodeURIComponent).join('/'), path);
+  const result = await fetch(`${url}?ref=${encodeURIComponent(config.branch)}`, { headers: githubHeaders(env) });
+  if (result.status === 404) return { status: 200, text: JSON.stringify({ state: 'running' }) };
+  if (!result.ok) return { status: 502, error: `GitHub status read failed (${result.status}).` };
+  const file = await result.json();
+  return { status: 200, text: base64ToText(file.content) };
 }
 
 function bytesToBase64(bytes) {
@@ -89,6 +128,22 @@ export default {
       return response(request, env, 'Origin not allowed.', 403);
     }
     try {
+      const url = new URL(request.url);
+      if (url.pathname === '/anylist-sync' || url.pathname === '/anylist-sync/status') {
+        if (!requireHost(request, env)) return jsonResponse(request, env, { error: 'host_authentication_failed' }, 401);
+        if (url.pathname === '/anylist-sync' && request.method === 'POST') {
+          const syncId = crypto.randomUUID();
+          const result = await dispatchAnyListSync(env, syncId);
+          if (result.error) return jsonResponse(request, env, { error: 'workflow_dispatch_failed' }, result.status);
+          return jsonResponse(request, env, { syncId }, result.status);
+        }
+        if (url.pathname === '/anylist-sync/status' && request.method === 'GET') {
+          const result = await readSyncStatus(env, url.searchParams.get('id') || '');
+          if (result.error) return jsonResponse(request, env, { error: 'status_read_failed' }, result.status);
+          return response(request, env, result.text, result.status, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+        }
+        return response(request, env, 'Method not allowed.', 405);
+      }
       if (request.method === 'GET') {
         const result = await readState(env);
         if (result.status === 404) return response(request, env, null, 404);
