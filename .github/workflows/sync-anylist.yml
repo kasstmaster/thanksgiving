@@ -1,0 +1,32 @@
+name: Sync AnyList Address Book
+on:
+  workflow_dispatch:
+    inputs:
+      sync_id:
+        description: Correlation ID supplied by the authenticated Worker
+        required: true
+permissions:
+  contents: read
+concurrency:
+  group: anylist-address-book-sync
+  cancel-in-progress: false
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install --ignore-scripts
+      - run: node scripts/sync-anylist.js
+        env:
+          ANYLIST_EMAIL: ${{ secrets.ANYLIST_EMAIL }}
+          ANYLIST_PASSWORD: ${{ secrets.ANYLIST_PASSWORD }}
+          ANYLIST_LIST_NAME: ${{ vars.ANYLIST_LIST_NAME || 'Address Book' }}
+          STATE_REPOSITORY: ${{ vars.STATE_REPOSITORY }}
+          STATE_BRANCH: ${{ vars.STATE_BRANCH || 'main' }}
+          STATE_PATH: ${{ vars.STATE_PATH || 'data/app-state.json' }}
+          STATE_REPOSITORY_TOKEN: ${{ secrets.STATE_REPOSITORY_TOKEN }}
+          SYNC_ID: ${{ inputs.sync_id }}

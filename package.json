@@ -1,0 +1,7 @@
+{
+  "name": "thanksgiving-anylist-sync",
+  "private": true,
+  "type": "module",
+  "scripts": { "test": "node --test" },
+  "dependencies": { "anylist": "*" }
+}

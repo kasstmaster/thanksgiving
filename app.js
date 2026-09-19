@@ -89,6 +89,7 @@ let guestName = '';
 let pendingAccountAction = null;
 let pendingClaimItemId = null;
 let hostAuthenticated = false;
+let hostCredential = '';
 let hostToolsRequested = false;
 let localStateRevision = 0;
 const singleColumnMenu = window.matchMedia('(max-width: 800px)');
@@ -432,6 +433,7 @@ document.querySelector('#passwordForm').addEventListener('submit', event => {
   const accountName = document.querySelector('#accountPassword').value;
   if (normalizeAccountName(accountName) === normalizeAccountName(HOST_PASSWORD)) {
     hostAuthenticated = true;
+    hostCredential = accountName;
     guestName = HOST_DISPLAY_NAME;
     updateHostToolsButton();
     const action = pendingAccountAction;
@@ -642,6 +644,40 @@ document.querySelector('#manageEventsButton').addEventListener('click', () => { 
 document.querySelector('#editItemsButton').addEventListener('click', () => { document.querySelector('#hostToolsDialog').close(); openAdmin(); });
 document.querySelector('#clearClaimButton').addEventListener('click', () => { document.querySelector('#hostToolsDialog').close(); openClearClaimDialog(); });
 document.querySelector('#editAccountsButton').addEventListener('click', () => { document.querySelector('#hostToolsDialog').close(); openAccountsAdmin(); });
+const wait = milliseconds => new Promise(resolve => setTimeout(resolve, milliseconds));
+document.querySelector('#syncAnyListButton').addEventListener('click', async event => {
+  if (!hostAuthenticated || !SHARED_STATE_URL) return;
+  const button = event.currentTarget;
+  const result = document.querySelector('#anyListSyncResult');
+  button.disabled = true;
+  button.textContent = 'Syncing…';
+  result.textContent = 'Syncing…';
+  try {
+    const headers = { 'X-Host-Password': hostCredential };
+    const started = await fetch(`${SHARED_STATE_URL.replace(/\/$/, '')}/anylist-sync`, { method: 'POST', headers });
+    if (!started.ok) throw new Error(`Sync start failed (${started.status})`);
+    const { syncId } = await started.json();
+    let outcome;
+    for (let attempt = 0; attempt < 120; attempt += 1) {
+      await wait(5000);
+      const status = await fetch(`${SHARED_STATE_URL.replace(/\/$/, '')}/anylist-sync/status?id=${encodeURIComponent(syncId)}`, { headers, cache: 'no-store' });
+      if (!status.ok) throw new Error(`Sync status failed (${status.status})`);
+      outcome = await status.json();
+      if (outcome.state !== 'running') break;
+    }
+    if (!outcome || outcome.state !== 'complete') throw new Error('AnyList sync failed or timed out.');
+    await loadSharedState();
+    const added = outcome.added ? `${outcome.added} new account${outcome.added === 1 ? '' : 's'} added` : 'no new accounts found';
+    const skipped = outcome.skipped ? `, ${outcome.skipped} entr${outcome.skipped === 1 ? 'y' : 'ies'} skipped` : '';
+    result.textContent = `Sync complete — ${added}${skipped}.`;
+  } catch (error) {
+    console.error(error);
+    result.textContent = 'Unable to sync AnyList Address Book. Existing accounts were not changed.';
+  } finally {
+    button.disabled = false;
+    button.textContent = 'Sync AnyList Address Book';
+  }
+});
 document.querySelector('#clearClaimItem').addEventListener('change', updateClearClaimFamilies);
 document.querySelector('#clearClaimFamily').addEventListener('change', updateClearClaimQuantities);
 document.querySelector('#clearClaimForm').addEventListener('submit', event => {
