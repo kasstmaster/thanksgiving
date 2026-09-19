@@ -3,8 +3,11 @@ main = "worker.js"
 compatibility_date = "2026-09-17"
 
 [vars]
-# Prefer a separate private repository because the state contains guest names.
-GITHUB_REPOSITORY = "YOUR_GITHUB_NAME/YOUR_PRIVATE_DATA_REPOSITORY"
+# Live shared state is kept separately because it contains guest names.
+GITHUB_REPOSITORY = "kasstmaster/themeyersevents-data"
 GITHUB_BRANCH = "main"
 GITHUB_STATE_PATH = "data/app-state.json"
-ALLOWED_ORIGIN = "https://YOUR_GITHUB_NAME.github.io"
+ALLOWED_ORIGIN = "https://kasstmaster.github.io"
+# Repository containing this website and sync-anylist.yml.
+GITHUB_WORKFLOW_REPOSITORY = "kasstmaster/thanksgiving"
+GITHUB_WORKFLOW_BRANCH = "main"

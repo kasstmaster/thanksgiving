@@ -89,3 +89,67 @@ shared copy; browser storage is only an offline fallback.
 > static website is only a convenience—not secure authentication—because
 > visitors can view the site's source code. Protect the shared endpoint with
 > appropriate access controls if RSVP names must remain private.
+
+## AnyList Address Book sync
+
+The **Host tools → Sync AnyList Address Book** button starts a private GitHub
+Actions job through the Cloudflare Worker. The job logs in to AnyList, reads the
+structured `name` and category of each real item in `Address Book`, and never
+calls an AnyList mutation method. Notes/descriptions are counted for safe
+logging but are not passed to the account converter. The action rereads the
+latest state file and its SHA immediately before writing; a conflicting update
+is retried against the new version. It only appends `{ "name": "…",
+"selected": false }` records. Existing records and all of their properties are
+left byte-for-byte equivalent in the parsed state.
+
+The AnyList client is Node-oriented and uses AnyList's unofficial/private
+service, so it runs in GitHub Actions rather than in the Cloudflare Workers
+runtime. The Worker only verifies the host, dispatches the action, and reads its
+non-secret result. Because this is an unofficial integration, an AnyList service
+change may require updating the `anylist` dependency or adapter.
+
+### Required configuration (do this before deploying)
+
+In **`kasstmaster/thanksgiving` → Settings → Secrets and variables → Actions**,
+add:
+
+| Kind | Name | Value |
+| --- | --- | --- |
+| Secret | `ANYLIST_EMAIL` | AnyList account email with read access to the list |
+| Secret | `ANYLIST_PASSWORD` | That AnyList account's password |
+| Secret | `STATE_REPOSITORY_TOKEN` | Fine-grained token scoped to `kasstmaster/themeyersevents-data`, with **Contents: Read and write** |
+| Variable | `ANYLIST_LIST_NAME` | `Address Book` |
+| Variable | `STATE_REPOSITORY` | `kasstmaster/themeyersevents-data` |
+| Variable | `STATE_BRANCH` | `main` |
+| Variable | `STATE_PATH` | `data/app-state.json` |
+
+In Cloudflare, add the host password as an encrypted Worker secret (use the
+same value configured as `HOST_PASSWORD` in `app.js`):
+
+```sh
+cd github-state-worker
+npx wrangler secret put HOST_PASSWORD
+```
+
+The Worker's existing `GITHUB_TOKEN` must be a fine-grained token scoped to both
+`kasstmaster/thanksgiving` and `kasstmaster/themeyersevents-data`. It needs
+**Actions: Read and write** on the website repository to dispatch the workflow,
+and **Contents: Read and write** on the data repository for the existing shared
+state endpoint (the AnyList status check itself only reads there). Never place
+this token or `STATE_REPOSITORY_TOKEN` in `wrangler.toml`.
+
+Finally, set these non-secret values in `github-state-worker/wrangler.toml`:
+
+* `GITHUB_REPOSITORY="kasstmaster/themeyersevents-data"`
+* `GITHUB_BRANCH="main"`
+* `GITHUB_STATE_PATH="data/app-state.json"`
+* `GITHUB_WORKFLOW_REPOSITORY="kasstmaster/thanksgiving"`
+* `GITHUB_WORKFLOW_BRANCH="main"`
+
+The two repository settings intentionally differ: the workflow code lives in
+`kasstmaster/thanksgiving`, while both the existing website and the AnyList job
+read and write the live state in `kasstmaster/themeyersevents-data`.
+
+Then deploy the Worker manually and push the workflow. No deployment is
+performed by this repository change. Sync logs include counts and outcomes but
+never credentials, cookies, authorization headers, or token values.
