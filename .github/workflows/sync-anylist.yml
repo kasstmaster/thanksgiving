@@ -19,6 +19,13 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+      - name: Record sync start
+        run: node scripts/write-sync-status.js running
+        env:
+          STATE_REPOSITORY: ${{ vars.STATE_REPOSITORY }}
+          STATE_BRANCH: ${{ vars.STATE_BRANCH || 'main' }}
+          STATE_REPOSITORY_TOKEN: ${{ secrets.STATE_REPOSITORY_TOKEN }}
+          SYNC_ID: ${{ inputs.sync_id }}
       - run: npm install --ignore-scripts
       - run: node scripts/sync-anylist.js
         env:
@@ -28,5 +35,13 @@ jobs:
           STATE_REPOSITORY: ${{ vars.STATE_REPOSITORY }}
           STATE_BRANCH: ${{ vars.STATE_BRANCH || 'main' }}
           STATE_PATH: ${{ vars.STATE_PATH || 'data/app-state.json' }}
+          STATE_REPOSITORY_TOKEN: ${{ secrets.STATE_REPOSITORY_TOKEN }}
+          SYNC_ID: ${{ inputs.sync_id }}
+      - name: Record setup or sync failure
+        if: ${{ failure() }}
+        run: node scripts/write-sync-status.js failed
+        env:
+          STATE_REPOSITORY: ${{ vars.STATE_REPOSITORY }}
+          STATE_BRANCH: ${{ vars.STATE_BRANCH || 'main' }}
           STATE_REPOSITORY_TOKEN: ${{ secrets.STATE_REPOSITORY_TOKEN }}
           SYNC_ID: ${{ inputs.sync_id }}

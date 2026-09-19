@@ -16,6 +16,10 @@ function response(request, env, body, status = 200, headers = {}) {
   return new Response(body, { status, headers: { ...corsHeaders(request, env), ...headers } });
 }
 
+function jsonResponse(request, env, value, status = 200) {
+  return response(request, env, JSON.stringify(value), status, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+}
+
 function githubHeaders(env) {
   return {
     'Accept': 'application/vnd.github+json',
@@ -126,15 +130,17 @@ export default {
     try {
       const url = new URL(request.url);
       if (url.pathname === '/anylist-sync' || url.pathname === '/anylist-sync/status') {
-        if (!requireHost(request, env)) return response(request, env, 'Host authentication required.', 401);
+        if (!requireHost(request, env)) return jsonResponse(request, env, { error: 'host_authentication_failed' }, 401);
         if (url.pathname === '/anylist-sync' && request.method === 'POST') {
           const syncId = crypto.randomUUID();
           const result = await dispatchAnyListSync(env, syncId);
-          return response(request, env, result.error || JSON.stringify({ syncId }), result.status, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+          if (result.error) return jsonResponse(request, env, { error: 'workflow_dispatch_failed' }, result.status);
+          return jsonResponse(request, env, { syncId }, result.status);
         }
         if (url.pathname === '/anylist-sync/status' && request.method === 'GET') {
           const result = await readSyncStatus(env, url.searchParams.get('id') || '');
-          return response(request, env, result.error || result.text, result.status, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+          if (result.error) return jsonResponse(request, env, { error: 'status_read_failed' }, result.status);
+          return response(request, env, result.text, result.status, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
         }
         return response(request, env, 'Method not allowed.', 405);
       }
