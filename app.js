@@ -647,9 +647,11 @@ document.querySelector('#editAccountsButton').addEventListener('click', () => { 
 const wait = milliseconds => new Promise(resolve => setTimeout(resolve, milliseconds));
 function anyListSyncErrorMessage(status, errorCode) {
   if (status === 401 || errorCode === 'host_authentication_failed') return 'Unable to sync: the Worker host password secret does not match the website host password.';
-  if (status === 405) return 'Unable to sync: the updated Cloudflare Worker has not been deployed yet.';
+  if (status === 403) return 'Unable to sync: this website origin is not allowed by the Cloudflare Worker.';
+  if (status === 404 || status === 405) return 'Unable to sync: the updated Cloudflare Worker has not been deployed yet.';
   if (errorCode === 'workflow_dispatch_failed') return 'Unable to sync: GitHub could not start the workflow. Check the Worker GitHub token and workflow branch.';
   if (errorCode === 'status_read_failed') return 'Unable to sync: the Worker could not read the result from the shared data repository.';
+  if (status >= 500) return 'Unable to sync: the Cloudflare Worker configuration could not start the AnyList job.';
   return 'Unable to sync AnyList Address Book. Existing accounts were not changed.';
 }
 document.querySelector('#syncAnyListButton').addEventListener('click', async event => {
@@ -695,7 +697,9 @@ document.querySelector('#syncAnyListButton').addEventListener('click', async eve
     result.textContent = `Sync complete — ${added}${skipped}.`;
   } catch (error) {
     console.error(error);
-    result.textContent = error.displayMessage || 'Unable to sync AnyList Address Book. Existing accounts were not changed.';
+    result.textContent = error.displayMessage || (error instanceof TypeError
+      ? 'Unable to contact the AnyList sync service. Deploy the latest Cloudflare Worker and check its allowed origin.'
+      : 'Unable to sync AnyList Address Book. Existing accounts were not changed.');
   } finally {
     button.disabled = false;
     button.textContent = 'Sync AnyList Address Book';
